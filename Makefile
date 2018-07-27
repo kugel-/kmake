@@ -1,17 +1,22 @@
 .DEFAULT_GOAL := all
 
 CC = cc
+CXX = c++
+AR = ar
+LD = cc
+LIBTOOL_CC = libtool $(LIBTOOL_SILENT) --mode=compile --tag CC $(CC)
+LIBTOOL_CXX = libtool $(LIBTOOL_SILENT) --mode=compile --tag CC $(CXX)
+LIBTOOL_LD = libtool $(LIBTOOL_SILENT) --mode=link --tag CC $(CC)
 
 S = @
 ifneq ($(V),1)
 Q = @
+LIBTOOL_SILENT = --silent
 endif
 
 ifneq ($(O),)
 OUTDIR := $(O)
 endif
-
-$(info $(OUTDIR))
 
 ifneq ($(OUTDIR),)
 OUTDIR := $(OUTDIR)/
@@ -21,7 +26,7 @@ endif
 empty :=
 space := $(empty) $(empty)
 
-subdir-y  := a/ b/ c/
+subdir-y  := a/ b/ c/ s/
 all_dirs  :=
 all_libs  :=
 all_progs :=
@@ -41,9 +46,13 @@ endef
 
 varname = $(notdir $(basename $(1)))
 
+getobjext = $(if $(filter %.la,$(1)),.lo,.o)
 getvar = $($(call varname,$(1))-$(2))
-getobj = $(or $(addprefix $(dir $(1)),$($(call varname,$(1))-y:.c=.o)),$(addsuffix .o,$(basename $(1))))
-getdep = $($(notdir $(basename $(1)))-deps-y:.c=.o)
+getobj = $(or $(addprefix $(dir $(1)),$($(call varname,$(1))-y:.c=$(call getobjext,$(1)))),$(addsuffix $(call getobjext,$(1)),$(basename $(1))))
+getdep = $($(call varname,$(1))-deps-y:.c=.o)
+# use libtool if building a shared library
+getcc = $(if $(filter %.cpp,$($(call varname,$(1))-y)),$(CXX),$(CC))
+getcompile = $(if $(filter %.la,$(1)),libtool compile --tag CC $(call getcc,$(1)),$(call getcc,$(1)))
 
 # Prepend variable $(2)-y to $(1)-(2)
 # e.g. prepend CFLAGS-y to libfoo-CFLAGS
@@ -69,29 +78,44 @@ $(foreach lib,$(all_libs),$(eval $(call prog_rule,$(lib))))
 changedir = $(if $(OUTDIR),cd $(OUTDIR))
 printcmd = $(if $(Q),@printf "  %-7s%s\n" "$(1)" "$(2)")
 
-all: $(addprefix $(OUTDIR),$(all_libs)) $(addprefix $(OUTDIR),$(all_progs))
-	@:
+.PHONY: all clean
+all: $(addprefix $(OUTDIR),$(all_libs)) $(addprefix $(OUTDIR),$(all_progs)) ;
 
 clean:
-	rm -f $(cleanfiles)
+	for i in $(cleanfiles); do echo $$i; done | xargs rm -f
 
 $(OUTDIR)%.o: %.c
 	$(call printcmd,CC,$^)
 	$(S)mkdir -p $(dir $@)
 	$(Q)$(CC) $(ALL_CPPFLAGS) $(CPPFLAGS) $(ALL_CFLAGS) $(CFLAGS) -c -o $@ $^
 
+$(OUTDIR)%.lo: %.c
+	$(call printcmd,CC,$^)
+	$(S)mkdir -p $(dir $@)
+	$(Q)$(LIBTOOL_CC) $(ALL_CPPFLAGS) $(CPPFLAGS) $(ALL_CFLAGS) $(CLAGS) -c -o $@ $^
+
 $(OUTDIR)%.o: %.cpp
 	$(call printcmd,CC,$^)
 	$(S)mkdir -p $(dir $@)
-	$(Q)$(CC) $(ALL_CPPFLAGS) $(CPPFLAGS) $(ALL_CXXFLAGS) $(CXXFLAGS) -c -o $@ $^
+	$(Q)$(CXX) $(ALL_CPPFLAGS) $(CPPFLAGS) $(ALL_CXXFLAGS) $(CXXFLAGS) -c -o $@ $^
+
+$(OUTDIR)%.o: %.cpp
+	$(call printcmd,CC,$^)
+	$(S)mkdir -p $(dir $@)
+	$(Q)$(LIBTOOL_CXX) $(ALL_CPPFLAGS) $(CPPFLAGS) $(ALL_CXXFLAGS) $(CXXFLAGS) -c -o $@ $^
+
+$(OUTDIR)%.la:
+	$(call printcmd,AR,$@)
+	$(S)mkdir -p $(dir $@)
+	$(Q)$(LIBTOOL_LD)  -rpath /usr/lib $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $^
 
 $(OUTDIR)%.a:
 	$(call printcmd,AR,$@)
 	$(S)mkdir -p $(dir $@)
-	$(Q)ar rcs $@ $^
+	$(Q)$(AR) rcs $@ $^
 
 $(OUTDIR)%:
 	$(call printcmd,LD,$@)
 	$(S)mkdir -p $(dir $@)
-	$(Q)$(CC) -o $(ALL_LDFLAGS) $(LDFLAGS) $@ $^
+	$(Q)$(LIBTOOL_LD) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $^
 
