@@ -55,6 +55,8 @@ getdep = $($(call varname,$(1))-deps-y:.c=.o)
 # use libtool if building a shared library
 getcc = $(if $(filter %.cpp,$($(call varname,$(1))-y)),$(CXX),$(CC))
 getcompile = $(if $(filter %.la,$(1)),libtool compile --tag CC $(call getcc,$(1)),$(call getcc,$(1)))
+getdepfile = $(dir $(1)).deps/$(patsubst %.lo,%.d,$(patsubst %.o,%.d,$(notdir $(1))))
+getdepopt = -MD -MP -MF$(call getdepfile,$(1))
 
 # Prepend variable $(2)-y to $(1)-(2)
 # e.g. prepend CFLAGS-y to libfoo-CFLAGS
@@ -63,8 +65,8 @@ $(1)-$(2) := $($(2)-y) $($(1)-$(2))
 endef
 
 define prog_rule
-cleanfiles += $(addprefix $(OUTDIR),$(call getobj,$(1)))
-cleanfiles += $(OUTDIR)$(1)
+cleanfiles += $(call getobj,$(1)) $(1)
+cleanfiles += $(foreach f,$(call getobj,$(1)),$(call getdepfile,$(f)))
 $(OUTDIR)$(1): CPPFLAGS = $(call getvar,$(1),CPPFLAGS)
 $(OUTDIR)$(1): CFLAGS = $(call getvar,$(1),CFLAGS)
 $(OUTDIR)$(1): CXXFLAGS = $(call getvar,$(1),CXXFLAGS)
@@ -84,28 +86,28 @@ printcmd = $(if $(Q),@printf "  %-7s%s\n" "$(1)" "$(2)")
 all: $(addprefix $(OUTDIR),$(all_libs)) $(addprefix $(OUTDIR),$(all_progs)) ;
 
 clean:
-	$(call printcmd,CLEAN,$(cleanfiles))
-	$(Q)$(LIBTOOL_RM) $(cleanfiles)
+	$(call printcmd,CLEAN,$(addprefix $(OUTDIR),$(cleanfiles)))
+	$(Q)$(LIBTOOL_RM) $(addprefix $(OUTDIR),$(cleanfiles))
 
 $(OUTDIR)%.o: %.c
-	$(call printcmd,CC,$^)
+	$(call printcmd,CC,$<)
 	$(S)mkdir -p $(dir $@)
-	$(Q)$(CC) $(ALL_CPPFLAGS) $(CPPFLAGS) $(ALL_CFLAGS) $(CFLAGS) -c -o $@ $^
+	$(Q)$(CC) $(call getdepopt,$@) $(ALL_CPPFLAGS) $(CPPFLAGS) $(ALL_CFLAGS) $(CFLAGS) -c -o $@ $<
 
 $(OUTDIR)%.lo: %.c
-	$(call printcmd,CC,$^)
+	$(call printcmd,CC,$<)
 	$(S)mkdir -p $(dir $@)
-	$(Q)$(LIBTOOL_CC) $(ALL_CPPFLAGS) $(CPPFLAGS) $(ALL_CFLAGS) $(CLAGS) -c -o $@ $^
+	$(Q)$(LIBTOOL_CC) $(call getdepopt,$@) $(ALL_CPPFLAGS) $(CPPFLAGS) $(ALL_CFLAGS) $(CLAGS) -c -o $@ $<
 
 $(OUTDIR)%.o: %.cpp
-	$(call printcmd,CC,$^)
+	$(call printcmd,CC,$<)
 	$(S)mkdir -p $(dir $@)
-	$(Q)$(CXX) $(ALL_CPPFLAGS) $(CPPFLAGS) $(ALL_CXXFLAGS) $(CXXFLAGS) -c -o $@ $^
+	$(Q)$(CXX) $(call getdepopt,$@) $(ALL_CPPFLAGS) $(CPPFLAGS) $(ALL_CXXFLAGS) $(CXXFLAGS) -c -o $@ $<
 
 $(OUTDIR)%.o: %.cpp
-	$(call printcmd,CC,$^)
+	$(call printcmd,CC,$<)
 	$(S)mkdir -p $(dir $@)
-	$(Q)$(LIBTOOL_CXX) $(ALL_CPPFLAGS) $(CPPFLAGS) $(ALL_CXXFLAGS) $(CXXFLAGS) -c -o $@ $^
+	$(Q)$(LIBTOOL_CXX) $(call getdepopt,$@) $(ALL_CPPFLAGS) $(CPPFLAGS) $(ALL_CXXFLAGS) $(CXXFLAGS) -c -o $@ $<
 
 $(OUTDIR)%.la:
 	$(call printcmd,AR,$@)
@@ -121,4 +123,8 @@ $(OUTDIR)%:
 	$(call printcmd,LD,$@)
 	$(S)mkdir -p $(dir $@)
 	$(Q)$(LIBTOOL_LD) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $^
+
+$(OUTDIR)%.d:;
+
+-include $(filter %.d,$(cleanfiles))
 
