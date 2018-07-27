@@ -4,9 +4,11 @@ CC = cc
 CXX = c++
 AR = ar
 LD = cc
+RM = rm -f
 LIBTOOL_CC = libtool $(LIBTOOL_SILENT) --mode=compile --tag CC $(CC)
 LIBTOOL_CXX = libtool $(LIBTOOL_SILENT) --mode=compile --tag CC $(CXX)
 LIBTOOL_LD = libtool $(LIBTOOL_SILENT) --mode=link --tag CC $(CC)
+LIBTOOL_RM = libtool $(LIBTOOL_SILENT) --mode=clean --tag CC $(RM)
 
 S = @
 ifneq ($(V),1)
@@ -82,7 +84,8 @@ printcmd = $(if $(Q),@printf "  %-7s%s\n" "$(1)" "$(2)")
 all: $(addprefix $(OUTDIR),$(all_libs)) $(addprefix $(OUTDIR),$(all_progs)) ;
 
 clean:
-	for i in $(cleanfiles); do echo $$i; done | xargs rm -f
+	$(call printcmd,CLEAN,$(cleanfiles))
+	$(Q)$(LIBTOOL_RM) $(cleanfiles)
 
 $(OUTDIR)%.o: %.c
 	$(call printcmd,CC,$^)
