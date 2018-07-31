@@ -1,4 +1,4 @@
-progs-y   := c csh
+progs-y   := c csh cxx
 
 c-CFLAGS  := -O1
 
@@ -7,3 +7,5 @@ c-deps-y  := a/liba.a
 
 csh-deps-y  := s/libshl.la
 csh-deps-y  += s/libshl2.la
+
+cxx-y     := cxx.cpp
