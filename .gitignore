@@ -1,5 +1,11 @@
 *.o
+*.lo
 *.a
+*.la
+*.deps
+*.libs
 
-one
-c
+a/y/x
+a/y/y
+a/y/1/one
+c/c
