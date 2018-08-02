@@ -6,4 +6,4 @@ x-y          := x.c
 x-y          += ../a.c
 
 y-y          := y.c
-y-deps-y     := a/a.c
+y-ext-y      := a/a.c
