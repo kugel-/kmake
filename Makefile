@@ -1,5 +1,7 @@
 .DEFAULT_GOAL := all
 
+include autoconf.mk
+
 # COMPILE and LINK are set in per-target rules
 CC = cc
 CXX = c++
@@ -112,7 +114,7 @@ $(foreach lib,$(all_libs),$(eval $(call prog_rule,$(OUTDIR)$(lib))))
 changedir = $(if $(OUTDIR),cd $(OUTDIR))
 printcmd = $(if $(Q),@printf "  %-7s%s\n" "$(1)" "$(2)")
 
-.PHONY: FORCE all clean
+.PHONY: FORCE all clean install install-progs install-libs install-data
 
 FORCE: ;
 
