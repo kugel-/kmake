@@ -10,6 +10,7 @@ RM = rm -f
 LIBTOOL_COMPILE = libtool $(LIBTOOL_SILENT) --mode=compile --tag CC $(COMPILE)
 LIBTOOL_LINK = libtool $(LIBTOOL_SILENT) --mode=link --tag CC $(LINK)
 LIBTOOL_RM = libtool $(LIBTOOL_SILENT) --mode=clean --tag CC $(RM)
+LIBTOOL_INSTALL = libtool $(LIBTOOL_SILENT) --mode=install --tag CC $(INSTALL_PROGRAM)
 
 S = @
 ifneq ($(V),1)
@@ -124,6 +125,18 @@ clean:
 	$(call printcmd,CLEAN,$(cleanfiles))
 	$(Q)$(LIBTOOL_RM) $(cleanfiles)
 
+install: install-libs install-progs install-data
+
+install-libs: FORCE
+	@mkdir -p $(DESTDIR)$(libdir)
+	$(LIBTOOL_INSTALL) $(filter %.la,$(all_libs)) $(DESTDIR)$(libdir)
+
+install-progs: FORCE
+	@mkdir -p $(DESTDIR)$(bindir)
+	$(LIBTOOL_INSTALL) $(all_progs) $(DESTDIR)$(bindir)
+
+install-data: FORCE
+
 $(OUTDIR)%.cmd: FORCE
 	$(S)mkdir -p $(dir $@)
 	$(Q)(cmd="$(COMPILE) $(ALL_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS)" ; \
@@ -145,7 +158,7 @@ $(OUTDIR)%.lo:
 $(OUTDIR)%.la:
 	$(call printcmd,AR,$@)
 	$(S)mkdir -p $(dir $@)
-	$(Q)$(LIBTOOL_LINK)  -rpath /usr/lib $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+
+	$(Q)$(LIBTOOL_LINK)  -rpath $(libdir) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+
 
 $(OUTDIR)%.a:
 	$(call printcmd,AR,$@)
