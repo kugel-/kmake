@@ -29,10 +29,32 @@ endif
 empty :=
 space := $(empty) $(empty)
 
-subdir-y  := a/ b/ c/ s/
-all_dirs  :=
-all_libs  :=
-all_progs :=
+define clearvar
+$(1)-y :=
+
+endef
+
+define clearvars
+$(call clearvar,subdir)
+# clear each $xx-y
+$(foreach v,$(prog_vars) $(lib_vars) $(data_vars),$(call clearvar,$(v)))
+$(foreach v,CPPFLAGS CFLAGS CXXFLAGS LDFLAGS,$(call clearvar,$(v)))
+extra-progs :=
+extra-libs :=
+extra-data :=
+endef
+
+subdir-y  := a/ b/ c/ d/ s/
+
+progs-dir := $(bindir)
+libs-dir := $(libdir)
+data-dir  := $(datadir)
+sysconf-dir := $(sysconfdir)
+
+prog_vars := progs
+lib_vars := libs
+data_vars := data sysconf
+
 #define reset_vars =
 #LOCAL_SRC :=
 #LOCAL_CFLAGS :=
@@ -43,6 +65,7 @@ all_progs :=
 ALL_CPPFLAGS = -I.
 ALL_CFLAGS = -O2
 ALL_CXXFLAGS = -Os
+
 
 define inc_subdir
 src := $(1)
@@ -74,6 +97,8 @@ getdepsdir = $(dir $(1)).deps/
 getcmdfile = $(call getdepsdir,$(1))$(notdir $(1)).cmd
 getdepfile = $(call getdepsdir,$(1))$(notdir $(1)).dep
 getdepopt = -MD -MP -MF$(call getdepfile,$(1))
+
+getprogs = $(foreach v,$(prog_vars),$(all_$(v)))
 
 # Prepend variable $(2)-y to $(1)-(2)
 # e.g. prepend CFLAGS-y to libfoo-CFLAGS
@@ -127,15 +152,23 @@ clean:
 
 install: install-libs install-progs install-data
 
-install-libs: FORCE
-	@mkdir -p $(DESTDIR)$(libdir)
-	$(LIBTOOL_INSTALL) $(filter %.la,$(all_libs)) $(DESTDIR)$(libdir)
+install-lib-%: FORCE
+	@mkdir -p $(DESTDIR)$($*-dir)
+	$(LIBTOOL_INSTALL) $(filter %.la,$(all_$*)) $(DESTDIR)$($*-dir)
 
-install-progs: FORCE
-	@mkdir -p $(DESTDIR)$(bindir)
-	$(LIBTOOL_INSTALL) $(all_progs) $(DESTDIR)$(bindir)
+install-libs: $(addprefix install-lib-,$(lib_vars))
 
-install-data: FORCE
+install-prog-%: FORCE
+	@mkdir -p $(DESTDIR)$($*-dir)
+	$(LIBTOOL_INSTALL) $(all_$*) $(DESTDIR)$($*-dir)
+
+install-progs: $(addprefix install-prog-,$(prog_vars))
+
+install-data-%: FORCE
+	@mkdir -p $(DESTDIR)$($*-dir)
+	$(INSTALL_PROGRAM) -t $(DESTDIR)$($*-dir) $(all_$*)
+
+install-data: $(addprefix install-data-,$(data_vars))
 
 $(OUTDIR)%.cmd: FORCE
 	$(S)mkdir -p $(dir $@)
@@ -165,7 +198,7 @@ $(OUTDIR)%.a:
 	$(S)mkdir -p $(dir $@)
 	$(Q)$(AR) rcs $@ $+
 
-$(all_progs):
+$(call getprogs):
 	$(call printcmd,LD,$@)
 	$(S)mkdir -p $(dir $@)
 	$(Q)$(LIBTOOL_LINK) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+
