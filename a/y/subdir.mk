@@ -1,6 +1,6 @@
 subdir-y     := 1/
 
-progs-y      := x y
+bin-y        := x y
 
 x-y          := x.c
 x-y          += ../a.c

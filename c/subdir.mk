@@ -1,4 +1,4 @@
-progs-y   := c csh cxx
+bin-y   := c csh cxx
 
 c-CFLAGS  := -O1
 

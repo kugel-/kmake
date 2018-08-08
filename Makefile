@@ -45,14 +45,15 @@ endef
 
 subdir-y  := a/ b/ c/ d/ s/
 
-progs-dir := $(bindir)
-libs-dir := $(libdir)
-data-dir  := $(datadir)
-sysconf-dir := $(sysconfdir)
+prog_vars   := bin sbin
+lib_vars    := libs
+data_vars   := data sysconf
 
-prog_vars := progs
-lib_vars := libs
-data_vars := data sysconf
+bin-dir     := $(bindir)
+sbin-dir    := $(sbindir)
+libs-dir    := $(libdir)
+data-dir    := $(datadir)
+sysconf-dir := $(sysconfdir)
 
 #define reset_vars =
 #LOCAL_SRC :=
