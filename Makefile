@@ -35,7 +35,6 @@ $(1)-y :=
 endef
 
 define clearvars
-$(call clearvar,subdir)
 # clear each $xx-y
 $(foreach v,$(prog_vars) $(lib_vars) $(data_vars),$(call clearvar,$(v)))
 $(foreach v,CPPFLAGS CFLAGS CXXFLAGS LDFLAGS,$(call clearvar,$(v)))

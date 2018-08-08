@@ -1,3 +1,5 @@
+subdir-y :=
+
 include $(src)subdir.mk
 
 # remember custom vars for installation
