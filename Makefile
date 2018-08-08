@@ -98,6 +98,7 @@ getdepfile = $(call getdepsdir,$(1))$(notdir $(1)).dep
 getdepopt = -MD -MP -MF$(call getdepfile,$(1))
 
 getprogs = $(foreach v,$(prog_vars),$(all_$(v)))
+getlibs = $(foreach v,$(lib_vars),$(all_$(v)))
 
 # Prepend variable $(2)-y to $(1)-(2)
 # e.g. prepend CFLAGS-y to libfoo-CFLAGS
@@ -133,8 +134,8 @@ $(foreach f,$(call getsrc,$(1)),$(eval $(call obj_rule,$(call getobjfile,$(f),$(
 endef
 
 $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
-$(foreach prog,$(all_progs),$(eval $(call prog_rule,$(OUTDIR)$(prog))))
-$(foreach lib,$(all_libs),$(eval $(call prog_rule,$(OUTDIR)$(lib))))
+$(foreach lib,$(call getlibs),$(eval $(call prog_rule,$(OUTDIR)$(lib))))
+$(foreach prog,$(call getprogs),$(eval $(call prog_rule,$(OUTDIR)$(prog))))
 
 changedir = $(if $(OUTDIR),cd $(OUTDIR))
 printcmd = $(if $(Q),@printf "  %-7s%s\n" "$(1)" "$(2)")
@@ -143,7 +144,8 @@ printcmd = $(if $(Q),@printf "  %-7s%s\n" "$(1)" "$(2)")
 
 FORCE: ;
 
-all: $(addprefix $(OUTDIR),$(all_libs)) $(addprefix $(OUTDIR),$(all_progs)) ;
+all: $(addprefix $(OUTDIR),$(call getlibs))
+all: $(addprefix $(OUTDIR),$(call getprogs))
 
 clean:
 	$(call printcmd,CLEAN,$(cleanfiles))
@@ -153,13 +155,13 @@ install: install-libs install-progs install-data
 
 install-lib-%: FORCE
 	@mkdir -p $(DESTDIR)$($*-dir)
-	$(LIBTOOL_INSTALL) $(filter %.la,$(all_$*)) $(DESTDIR)$($*-dir)
+	$(if $(filter %.la,$(all_$*)),$(LIBTOOL_INSTALL) $(filter %.la,$(all_$*)) $(DESTDIR)$($*-dir))
 
 install-libs: $(addprefix install-lib-,$(lib_vars))
 
 install-prog-%: FORCE
-	@mkdir -p $(DESTDIR)$($*-dir)
-	$(LIBTOOL_INSTALL) $(all_$*) $(DESTDIR)$($*-dir)
+	mkdir -p $(DESTDIR)$($*-dir)
+	$(if $(all_$*),$(LIBTOOL_INSTALL) $(all_$*) $(DESTDIR)$($*-dir))
 
 install-progs: $(addprefix install-prog-,$(prog_vars))
 
