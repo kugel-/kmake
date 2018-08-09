@@ -98,8 +98,9 @@ getcmdfile = $(call getdepsdir,$(1))$(notdir $(1)).cmd
 getdepfile = $(call getdepsdir,$(1))$(notdir $(1)).dep
 getdepopt = -MD -MP -MF$(call getdepfile,$(1))
 
-getprogs = $(foreach v,$(prog_vars),$(all_$(v)))
-getlibs = $(foreach v,$(lib_vars),$(all_$(v)))
+ALL_PROGS = $(foreach v,$(prog_vars),$(all_$(v)))
+ALL_LIBS  = $(foreach v,$(lib_vars),$(all_$(v)))
+ALL_DATA  = $(foreach v,$(data_vars),$(all_$(v)))
 
 # Prepend variable $(2)-y to $(1)-(2)
 # e.g. prepend CFLAGS-y to libfoo-CFLAGS
@@ -135,8 +136,8 @@ $(foreach f,$(call getsrc,$(1)),$(eval $(call obj_rule,$(call getobjfile,$(f),$(
 endef
 
 $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
-$(foreach lib,$(call getlibs),$(eval $(call prog_rule,$(OUTDIR)$(lib))))
-$(foreach prog,$(call getprogs),$(eval $(call prog_rule,$(OUTDIR)$(prog))))
+$(foreach lib,$(ALL_LIBS),$(eval $(call prog_rule,$(OUTDIR)$(lib))))
+$(foreach prog,$(ALL_PROGS),$(eval $(call prog_rule,$(OUTDIR)$(prog))))
 
 changedir = $(if $(OUTDIR),cd $(OUTDIR))
 printcmd = $(if $(Q),@printf "  %-8s%s\n" "$(1)" "$(2)")
@@ -145,8 +146,8 @@ printcmd = $(if $(Q),@printf "  %-8s%s\n" "$(1)" "$(2)")
 
 FORCE: ;
 
-all: $(addprefix $(OUTDIR),$(call getlibs))
-all: $(addprefix $(OUTDIR),$(call getprogs))
+all: $(addprefix $(OUTDIR),$(ALL_LIBS))
+all: $(addprefix $(OUTDIR),$(ALL_PROGS))
 
 clean:
 	$(call printcmd,CLEAN,$(cleanfiles))
@@ -202,7 +203,7 @@ $(OUTDIR)%.a:
 	$(S)mkdir -p $(dir $@)
 	$(Q)$(AR) rcs $@ $+
 
-$(call getprogs):
+$(ALL_PROGS):
 	$(call printcmd,LD,$@)
 	$(S)mkdir -p $(dir $@)
 	$(Q)$(LIBTOOL_LINK) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+
