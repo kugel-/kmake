@@ -139,7 +139,7 @@ $(foreach lib,$(call getlibs),$(eval $(call prog_rule,$(OUTDIR)$(lib))))
 $(foreach prog,$(call getprogs),$(eval $(call prog_rule,$(OUTDIR)$(prog))))
 
 changedir = $(if $(OUTDIR),cd $(OUTDIR))
-printcmd = $(if $(Q),@printf "  %-7s%s\n" "$(1)" "$(2)")
+printcmd = $(if $(Q),@printf "  %-8s%s\n" "$(1)" "$(2)")
 
 .PHONY: FORCE all clean install install-progs install-libs install-data
 
@@ -155,20 +155,22 @@ clean:
 install: install-libs install-progs install-data
 
 install-lib-%: FORCE
-	@mkdir -p $(DESTDIR)$($*-dir)
-	$(if $(filter %.la,$(all_$*)),$(LIBTOOL_INSTALL) $(filter %.la,$(all_$*)) $(DESTDIR)$($*-dir))
+	$(if $(filter %.la,$(all_$*)),$(call printcmd,INSTALL,$(filter %.la,$(all_$*))))
+	$(S)mkdir -p $(DESTDIR)$($*-dir)
+	$(Q)$(if $(filter %.la,$(all_$*)),$(LIBTOOL_INSTALL) $(filter %.la,$(all_$*)) $(DESTDIR)$($*-dir))
 
 install-libs: $(addprefix install-lib-,$(lib_vars))
 
 install-prog-%: FORCE
-	mkdir -p $(DESTDIR)$($*-dir)
-	$(if $(all_$*),$(LIBTOOL_INSTALL) $(all_$*) $(DESTDIR)$($*-dir))
+	$(if $(all_$*),$(call printcmd,INSTALL,$(all_$*)))
+	$(S)mkdir -p $(DESTDIR)$($*-dir)
+	$(if $(all_$*),$(Q)$(LIBTOOL_INSTALL) $(all_$*) $(DESTDIR)$($*-dir))
 
 install-progs: $(addprefix install-prog-,$(prog_vars))
 
 install-data-%: FORCE
-	@mkdir -p $(DESTDIR)$($*-dir)
-	$(INSTALL_PROGRAM) -t $(DESTDIR)$($*-dir) $(all_$*)
+	$(if $(all_$*),$(call printcmd,INSTALL,$(all_$*)))
+	$(Q)$(INSTALL_PROGRAM) -D -t $(DESTDIR)$($*-dir) $(all_$*)
 
 install-data: $(addprefix install-data-,$(data_vars))
 
