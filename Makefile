@@ -150,7 +150,7 @@ all: $(addprefix $(OUTDIR),$(ALL_LIBS))
 all: $(addprefix $(OUTDIR),$(ALL_PROGS))
 
 clean:
-	$(call printcmd,CLEAN,$(cleanfiles))
+	$(call printcmd,RM,$(cleanfiles))
 	$(Q)$(LIBTOOL_RM) $(cleanfiles)
 
 install: install-libs install-progs install-data
