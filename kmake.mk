@@ -1,7 +1,5 @@
 .DEFAULT_GOAL := all
 
-include autoconf.mk
-
 # COMPILE and LINK are set in per-target rules
 CC = cc
 CXX = c++
@@ -12,10 +10,18 @@ LIBTOOL_LINK = libtool $(LIBTOOL_SILENT) --mode=link --tag CC $(LINK)
 LIBTOOL_RM = libtool $(LIBTOOL_SILENT) --mode=clean --tag CC $(RM)
 LIBTOOL_INSTALL = libtool $(LIBTOOL_SILENT) --mode=install --tag CC $(INSTALL_PROGRAM)
 
-S = @
+AT = @
 ifneq ($(V),1)
 Q = @
 LIBTOOL_SILENT = --silent
+endif
+
+ifneq ($(S),)
+SRCDIR := $(S)
+endif
+
+ifneq ($(SRCDIR),)
+SRCDIR := $(SRCDIR)/
 endif
 
 ifneq ($(O),)
@@ -62,14 +68,14 @@ sysconf-dir := $(sysconfdir)
 #LOCAL_LDLIBS :=
 #endef                  g
 
-ALL_CPPFLAGS = -I.
+ALL_CPPFLAGS = -I. $(if $(SRCDIR),-I$(SRCDIR))
 ALL_CFLAGS = -O2
 ALL_CXXFLAGS = -Os
 
 
 define inc_subdir
 src := $(1)
-include process-subdir.mk
+include $(SRCDIR)process-subdir.mk
 endef
 
 varname = $(notdir $(basename $(1)))
@@ -114,7 +120,7 @@ cleanfiles += $(OUTDIR)$(1)
 cleanfiles += $(OUTDIR)$(call getdepfile,$(1))
 cleanfiles += $(OUTDIR)$(call getcmdfile,$(1))
 
-$(OUTDIR)$(1): $(2)
+$(OUTDIR)$(1): $(SRCDIR)$(2)
 $(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
 endef
 
@@ -159,26 +165,26 @@ install: install-libs install-progs install-data
 
 install-lib-%: FORCE
 	$(if $(filter %.la,$(all_$*)),$(call printcmd,INSTALL,$(filter %.la,$(addprefix $(OUTDIR),$(all_$*)))))
-	$(S)mkdir -p $(DESTDIR)$($*-dir)
+	$(AT)mkdir -p $(DESTDIR)$($*-dir)
 	$(Q)$(if $(filter %.la,$(all_$*)),$(LIBTOOL_INSTALL) $(filter %.la,$(addprefix $(OUTDIR),$(all_$*))) $(DESTDIR)$($*-dir))
 
 install-libs: $(addprefix install-lib-,$(lib_vars))
 
 install-prog-%: FORCE
 	$(if $(all_$*),$(call printcmd,INSTALL,$(addprefix $(OUTDIR),$(all_$*))))
-	$(S)mkdir -p $(DESTDIR)$($*-dir)
+	$(AT)mkdir -p $(DESTDIR)$($*-dir)
 	$(if $(all_$*),$(Q)$(LIBTOOL_INSTALL) $(addprefix $(OUTDIR),$(all_$*)) $(DESTDIR)$($*-dir))
 
 install-progs: $(addprefix install-prog-,$(prog_vars))
 
 install-data-%: FORCE
-	$(if $(all_$*),$(call printcmd,INSTALL,$(all_$*)))
-	$(Q)$(INSTALL_PROGRAM) -D -t $(DESTDIR)$($*-dir) $(all_$*)
+	$(if $(all_$*),$(call printcmd,INSTALL,$(addprefix $(SRCDIR),$(all_$*))))
+	$(Q)$(INSTALL_PROGRAM) -D -t $(DESTDIR)$($*-dir) $(addprefix $(SRCDIR),$(all_$*))
 
 install-data: $(addprefix install-data-,$(data_vars))
 
 $(OUTDIR)%.cmd: FORCE
-	$(S)mkdir -p $(dir $@)
+	$(AT)mkdir -p $(dir $@)
 	$(Q)(cmd="$(COMPILE) $(ALL_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS)" ; \
 	new=$$(echo $$cmd | md5sum | cut -c-32); \
 	uptodate= ; \
@@ -186,28 +192,28 @@ $(OUTDIR)%.cmd: FORCE
 	test -n "$$uptodate" || echo "$$new" - "$$cmd" >$@)
 
 $(OUTDIR)%.o:
-	$(call printcmd,CC,$<)
-	$(S)mkdir -p $(dir $@)/.deps
+	$(call printcmd,CC,$@)
+	$(AT)mkdir -p $(dir $@)/.deps
 	$(Q)$(COMPILE) $(call getdepopt,$@) $(ALL_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS) -c -o $@ $<
 
 $(OUTDIR)%.lo:
-	$(call printcmd,CC,$<)
-	$(S)mkdir -p $(dir $@)/.deps
+	$(call printcmd,CC,$@)
+	$(AT)mkdir -p $(dir $@)/.deps
 	$(Q)$(LIBTOOL_COMPILE) $(call getdepopt,$@) $(ALL_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS) -c -o $@ $<
 
 $(OUTDIR)%.la:
 	$(call printcmd,AR,$@)
-	$(S)mkdir -p $(dir $@)
+	$(AT)mkdir -p $(dir $@)
 	$(Q)$(LIBTOOL_LINK)  -rpath $(libdir) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+
 
 $(OUTDIR)%.a:
 	$(call printcmd,AR,$@)
-	$(S)mkdir -p $(dir $@)
+	$(AT)mkdir -p $(dir $@)
 	$(Q)$(AR) rcs $@ $+
 
 $(addprefix $(OUTDIR),$(ALL_PROGS)):
 	$(call printcmd,LD,$@)
-	$(S)mkdir -p $(dir $@)
+	$(AT)mkdir -p $(dir $@)
 	$(Q)$(LIBTOOL_LINK) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+
 
 -include $(filter %.d,$(cleanfiles))

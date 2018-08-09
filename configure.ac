@@ -13,6 +13,6 @@ AC_CONFIG_HEADERS([config.h])
 AC_PROG_CC
 AC_PROG_INSTALL
 
-AC_CONFIG_FILES([autoconf.mk])
+AC_CONFIG_FILES([autoconf.mk Makefile])
 
 AC_OUTPUT

@@ -11,4 +11,7 @@ datarootdir=@datarootdir@
 datadir=@datadir@
 sysconfdir=@sysconfdir@
 
+builddir=@builddir@
+srcdir=@srcdir@
+
 CC=@CC@

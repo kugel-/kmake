@@ -1,6 +1,6 @@
 subdir-y :=
 
-include $(src)subdir.mk
+include $(SRCDIR)$(src)subdir.mk
 
 # remember custom vars for installation
 prog_vars  := $(sort $(prog_vars) $(extra-progs))
