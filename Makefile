@@ -81,13 +81,13 @@ getsrc = $(addprefix $(dir $(1)),$(or $(call getvar,$(1),y),$(call varname,$(1))
 # call with $(1) = target (incl. extension)
 getobjext = $(if $(filter %.la,$(1)),lo,o)
 # call with $(1) = src file, $(2) = target varname
-getobjbase = $(addprefix $(OUTDIR),$(call prefixtarget,$(1),$(2)))
+getobjbase = $(call prefixtarget,$(1),$(2))
 # call with $(1) = src file, $(2) = target (incl. extension)
 getobjfile = $(call getobjbase,$(1),$(call varname,$(2))).$(call getobjext,$(2))
 # call with $(1) = target (incl. extension)
 getobj = $(foreach src,$(call getsrc,$(1)),$(call getobjfile,$(src),$(1)))
 # call with $(1) = target (incl. extension)
-getdep = $(addprefix $(OUTDIR),$(call getvar,$(1),deps-y))
+getdep = $(call getvar,$(1),deps-y)
 # use libtool if building a shared library
 is_cxx = $(filter %.cpp,$($(call varname,$(1))-y))
 getcc = $(if $(call is_cxx,$(1)),$(CXX),$(CC))
@@ -110,34 +110,34 @@ endef
 
 # Call with $1: object file, $2: src file
 define obj_rule
-cleanfiles += $(1)
-cleanfiles += $(call getdepfile,$(1))
-cleanfiles += $(call getcmdfile,$(1))
+cleanfiles += $(OUTDIR)$(1)
+cleanfiles += $(OUTDIR)$(call getdepfile,$(1))
+cleanfiles += $(OUTDIR)$(call getcmdfile,$(1))
 
-$(1): $(2)
-$(1): $(call getcmdfile,$(1))
+$(OUTDIR)$(1): $(2)
+$(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
 endef
 
 define prog_rule
-cleanfiles += $(1)
-$(1): CPPFLAGS = $(call getvar,$(1),CPPFLAGS)
-$(1): CFLAGS = $(call getvar,$(1),CFLAGS)
-$(1): CXXFLAGS = $(call getvar,$(1),CXXFLAGS)
-$(1): LDFLAGS = $(call getvar,$(1),LDFLAGS)
-$(1): COMPILE_FLAGS = $(if $(call is_cxx,$(1)),$(ALL_CXXFLAGS) $(CXXFLAGS),$(ALL_CFLAGS) $(CFLAGS))
-$(1): COMPILE = $(call getcc,$(1))
-$(1): LINK = $(call getcc,$(1))
-$(1): $(call getobj,$(1))
-$(1): $(call getdep,$(1))
+cleanfiles += $(OUTDIR)$(1)
+$(OUTDIR)$(1): CPPFLAGS = $(call getvar,$(1),CPPFLAGS)
+$(OUTDIR)$(1): CFLAGS = $(call getvar,$(1),CFLAGS)
+$(OUTDIR)$(1): CXXFLAGS = $(call getvar,$(1),CXXFLAGS)
+$(OUTDIR)$(1): LDFLAGS = $(call getvar,$(1),LDFLAGS)
+$(OUTDIR)$(1): COMPILE_FLAGS = $(if $(call is_cxx,$(1)),$(ALL_CXXFLAGS) $(CXXFLAGS),$(ALL_CFLAGS) $(CFLAGS))
+$(OUTDIR)$(1): COMPILE = $(call getcc,$(1))
+$(OUTDIR)$(1): LINK = $(call getcc,$(1))
+$(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getobj,$(1)))
+$(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getdep,$(1)))
 
-$(1)-obj += $(call getobj,$(1))
+$(call varname,$(1))-obj += $(call getobj,$(1))
 
 $(foreach f,$(call getsrc,$(1)),$(eval $(call obj_rule,$(call getobjfile,$(f),$(1)),$(f))))
 endef
 
 $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
-$(foreach lib,$(ALL_LIBS),$(eval $(call prog_rule,$(OUTDIR)$(lib))))
-$(foreach prog,$(ALL_PROGS),$(eval $(call prog_rule,$(OUTDIR)$(prog))))
+$(foreach lib,$(ALL_LIBS),$(eval $(call prog_rule,$(lib))))
+$(foreach prog,$(ALL_PROGS),$(eval $(call prog_rule,$(prog))))
 
 changedir = $(if $(OUTDIR),cd $(OUTDIR))
 printcmd = $(if $(Q),@printf "  %-8s%s\n" "$(1)" "$(2)")
@@ -149,6 +149,8 @@ FORCE: ;
 all: $(addprefix $(OUTDIR),$(ALL_LIBS))
 all: $(addprefix $(OUTDIR),$(ALL_PROGS))
 
+$(addprefix $(OUTDIR),$(all_$*))
+
 clean:
 	$(call printcmd,RM,$(cleanfiles))
 	$(Q)$(LIBTOOL_RM) $(cleanfiles)
@@ -156,16 +158,16 @@ clean:
 install: install-libs install-progs install-data
 
 install-lib-%: FORCE
-	$(if $(filter %.la,$(all_$*)),$(call printcmd,INSTALL,$(filter %.la,$(all_$*))))
+	$(if $(filter %.la,$(all_$*)),$(call printcmd,INSTALL,$(filter %.la,$(addprefix $(OUTDIR),$(all_$*)))))
 	$(S)mkdir -p $(DESTDIR)$($*-dir)
-	$(Q)$(if $(filter %.la,$(all_$*)),$(LIBTOOL_INSTALL) $(filter %.la,$(all_$*)) $(DESTDIR)$($*-dir))
+	$(Q)$(if $(filter %.la,$(all_$*)),$(LIBTOOL_INSTALL) $(filter %.la,$(addprefix $(OUTDIR),$(all_$*))) $(DESTDIR)$($*-dir))
 
 install-libs: $(addprefix install-lib-,$(lib_vars))
 
 install-prog-%: FORCE
-	$(if $(all_$*),$(call printcmd,INSTALL,$(all_$*)))
+	$(if $(all_$*),$(call printcmd,INSTALL,$(addprefix $(OUTDIR),$(all_$*))))
 	$(S)mkdir -p $(DESTDIR)$($*-dir)
-	$(if $(all_$*),$(Q)$(LIBTOOL_INSTALL) $(all_$*) $(DESTDIR)$($*-dir))
+	$(if $(all_$*),$(Q)$(LIBTOOL_INSTALL) $(addprefix $(OUTDIR),$(all_$*)) $(DESTDIR)$($*-dir))
 
 install-progs: $(addprefix install-prog-,$(prog_vars))
 
@@ -203,7 +205,7 @@ $(OUTDIR)%.a:
 	$(S)mkdir -p $(dir $@)
 	$(Q)$(AR) rcs $@ $+
 
-$(ALL_PROGS):
+$(addprefix $(OUTDIR),$(ALL_PROGS)):
 	$(call printcmd,LD,$@)
 	$(S)mkdir -p $(dir $@)
 	$(Q)$(LIBTOOL_LINK) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+
