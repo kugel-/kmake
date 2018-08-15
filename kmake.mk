@@ -11,9 +11,19 @@ LIBTOOL_RM = libtool $(LIBTOOL_SILENT) --mode=clean --tag CC $(RM)
 LIBTOOL_INSTALL = libtool $(LIBTOOL_SILENT) --mode=install --tag CC $(INSTALL_PROGRAM)
 
 AT = @
-ifneq ($(V),1)
-Q = @
-LIBTOOL_SILENT = --silent
+
+ifeq ($(V),2)
+QQ :=
+Q  :=
+LIBTOOL_SILENT :=
+else ifeq ($(V),1)
+QQ := @
+Q  :=
+LIBTOOL_SILENT :=
+else
+QQ := @
+Q  := @
+LIBTOOL_SILENT := --silent
 endif
 
 ifneq ($(S),)
@@ -141,6 +151,7 @@ $(OUTDIR)$(1): LDFLAGS = $(call getvar,$(1),LDFLAGS)
 $(OUTDIR)$(1): COMPILE_FLAGS = $(if $(call is_cxx,$(1)),$(ALL_CXXFLAGS) $(CXXFLAGS),$(ALL_CFLAGS) $(CFLAGS))
 $(OUTDIR)$(1): COMPILE = $(call getcc,$(1))
 $(OUTDIR)$(1): LINK = $(call getcc,$(1))
+$(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(1)),CXX,CC)
 $(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getobj,$(1)))
 $(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getvar,$(1),DEPS))
 
@@ -154,7 +165,8 @@ $(foreach lib,$(ALL_LIBS),$(eval $(call prog_rule,$(lib))))
 $(foreach prog,$(ALL_PROGS),$(eval $(call prog_rule,$(prog))))
 
 changedir = $(if $(OUTDIR),cd $(OUTDIR))
-printcmd = $(if $(Q),@printf "  %-8s%s\n" "$(1)" "$(2)")
+stripwd = $(if $(STRIPWD),$(patsubst $(OUTDIR)%,%,$(1)),$(1))
+printcmd = $(if $(Q),@printf "  %-8s%s\n" "$(1)" "$(call stripwd,$(2))")
 
 .PHONY: FORCE all clean install install-progs install-libs install-data
 
@@ -193,24 +205,24 @@ install-data: $(addprefix install-data-,$(data_vars))
 
 $(OUTDIR)%.cmd: FORCE
 	$(AT)mkdir -p $(dir $@)
-	$(Q)(cmd="$(COMPILE) $(ALL_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS)" ; \
+	$(QQ)(cmd="$(COMPILE) $(ALL_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS)" ; \
 	new=$$(echo $$cmd | md5sum | cut -c-32); \
 	uptodate= ; \
 	if [ -f "$@" ]; then old=$$(cut -c-32 $@); test "$$old" = "$$new" && uptodate=y ; fi ;\
 	test -n "$$uptodate" || echo "$$new" - "$$cmd" >$@)
 
 $(OUTDIR)%.o:
-	$(call printcmd,CC,$@)
+	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)/.deps
 	$(Q)$(COMPILE) $(call getdepopt,$@) $(ALL_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS) -c -o $@ $<
 
 $(OUTDIR)%.lo:
-	$(call printcmd,CC,$@)
+	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)/.deps
 	$(Q)$(LIBTOOL_COMPILE) $(call getdepopt,$@) $(ALL_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS) -c -o $@ $<
 
 $(OUTDIR)%.la:
-	$(call printcmd,AR,$@)
+	$(call printcmd,LD,$@)
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(LIBTOOL_LINK)  -rpath $(libdir) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+ $(call getvar,$(@),LIBS)
 
