@@ -109,7 +109,7 @@ getobjfile = $(call getobjbase,$(1),$(call varname,$(2))).$(call getobjext,$(2))
 getobj = $(foreach src,$(call getsrc,$(1)),$(call getobjfile,$(src),$(1)))
 # call with $(1) = target (incl. extension)
 # use libtool if building a shared library
-is_cxx = $(filter %.cpp,$($(call varname,$(1))-y))
+is_cxx = $(filter %.cpp,$(call getsrc,$(1)))
 getcc = $(if $(call is_cxx,$(1)),$(CXX),$(CC))
 # call with $(1) = obj file
 getdepsdir = $(dir $(1)).deps/
