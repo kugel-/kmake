@@ -1,20 +1,5 @@
 .DEFAULT_GOAL := all
 
-# COMPILE and LINK are set in per-target rules
-CC      ?= cc
-CXX     ?= c++
-AR      ?= ar
-RM      ?= rm -f
-LIBTOOL ?= libtool
-
-LIBTOOL_COMPILE := $(LIBTOOL) $(LIBTOOL_SILENT) --mode=compile --tag CC $(COMPILE)
-LIBTOOL_LINK    := $(LIBTOOL) $(LIBTOOL_SILENT) --mode=link --tag CC $(LINK)
-LIBTOOL_RM      := $(LIBTOOL) $(LIBTOOL_SILENT) --mode=clean --tag CC $(RM)
-LIBTOOL_INSTALL := $(LIBTOOL) $(LIBTOOL_SILENT) --mode=install --tag CC $(INSTALL_PROGRAM)
-
-DEFAULT_EXT ?= c
-STRIPWD     ?=
-
 AT = @
 ifeq ($(V),2)
 QQ :=
@@ -29,6 +14,21 @@ QQ := @
 Q  := @
 LIBTOOL_SILENT := --silent
 endif
+
+# COMPILE and LINK are set in per-target rules
+CC      ?= cc
+CXX     ?= c++
+AR      ?= ar
+RM      ?= rm -f
+LIBTOOL ?= libtool
+
+LIBTOOL_COMPILE = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=compile --tag CC $(COMPILE)
+LIBTOOL_LINK    = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=link --tag CC $(LINK)
+LIBTOOL_RM      = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=clean --tag CC $(RM)
+LIBTOOL_INSTALL = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=install --tag CC $(INSTALL_PROGRAM)
+
+DEFAULT_EXT ?= c
+STRIPWD     ?=
 
 ifneq ($(S),)
 SRCDIR := $(S)
