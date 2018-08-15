@@ -144,6 +144,8 @@ cleanfiles += $(OUTDIR)$(call getcmdfile,$(1))
 
 $(OUTDIR)$(1): $(SRCDIR)$(2)
 $(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
+
+$(if $(OUTDIR),$(eval $(1): $(OUTDIR)$(1)))
 endef
 
 define prog_rule
@@ -158,6 +160,8 @@ $(OUTDIR)$(1): LINK = $(call getcc,$(1))
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(1)),CXX,CC)
 $(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getobj,$(1)))
 $(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getvar,$(1),DEPS))
+
+$(if $(OUTDIR),$(eval $(1): $(OUTDIR)$(1)))
 
 $(call varname,$(1))-obj += $(call getobj,$(1))
 
