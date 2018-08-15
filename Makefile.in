@@ -1,0 +1,7 @@
+include autoconf.mk
+
+subdir-y := a/ b/ c/ d/ e/ s/ t/
+
+include @srcdir@/kmake.mk
+
+
