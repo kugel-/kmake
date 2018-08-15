@@ -1,17 +1,21 @@
 .DEFAULT_GOAL := all
 
 # COMPILE and LINK are set in per-target rules
-CC = cc
-CXX = c++
-AR = ar
-RM = rm -f
-LIBTOOL_COMPILE = libtool $(LIBTOOL_SILENT) --mode=compile --tag CC $(COMPILE)
-LIBTOOL_LINK = libtool $(LIBTOOL_SILENT) --mode=link --tag CC $(LINK)
-LIBTOOL_RM = libtool $(LIBTOOL_SILENT) --mode=clean --tag CC $(RM)
-LIBTOOL_INSTALL = libtool $(LIBTOOL_SILENT) --mode=install --tag CC $(INSTALL_PROGRAM)
+CC      ?= cc
+CXX     ?= c++
+AR      ?= ar
+RM      ?= rm -f
+LIBTOOL ?= libtool
+
+LIBTOOL_COMPILE := $(LIBTOOL) $(LIBTOOL_SILENT) --mode=compile --tag CC $(COMPILE)
+LIBTOOL_LINK    := $(LIBTOOL) $(LIBTOOL_SILENT) --mode=link --tag CC $(LINK)
+LIBTOOL_RM      := $(LIBTOOL) $(LIBTOOL_SILENT) --mode=clean --tag CC $(RM)
+LIBTOOL_INSTALL := $(LIBTOOL) $(LIBTOOL_SILENT) --mode=install --tag CC $(INSTALL_PROGRAM)
+
+DEFAULT_EXT ?= c
+STRIPWD     ?=
 
 AT = @
-
 ifeq ($(V),2)
 QQ :=
 Q  :=
@@ -60,7 +64,7 @@ extra-libs :=
 extra-data :=
 endef
 
-subdir-y  := a/ b/ c/ d/ s/
+subdir-y    ?=
 
 prog_vars   := bin sbin
 lib_vars    := libs
@@ -79,9 +83,9 @@ sysconf-dir := $(sysconfdir)
 #LOCAL_LDLIBS :=
 #endef                  g
 
-ALL_CPPFLAGS = -I. $(if $(SRCDIR),-I$(SRCDIR))
-ALL_CFLAGS = -O2
-ALL_CXXFLAGS = -Os
+ALL_CPPFLAGS ?= -I. $(if $(SRCDIR),-I$(SRCDIR))
+ALL_CFLAGS   ?= -O2 -g
+ALL_CXXFLAGS ?= -O2 -g
 
 
 define inc_subdir
@@ -94,7 +98,7 @@ prefixtarget = $(foreach src,$(1),$(addprefix $(dir $(src))$(2)-,$(call varname,
 
 getvar = $($(call varname,$(1))$(if $(2),-$(2))-y)
 # call with $(1) = target (incl. extension)
-getsrc = $(addprefix $(dir $(1)),$(or $(call getvar,$(1)),$(call varname,$(1)).c)) $(call getvar,$(1),ext)
+getsrc = $(addprefix $(dir $(1)),$(or $(call getvar,$(1)),$(call varname,$(1)).$(DEFAULT_EXT))) $(call getvar,$(1),ext)
 # call with $(1) = target (incl. extension)
 getobjext = $(if $(filter %.la,$(1)),lo,o)
 # call with $(1) = src file, $(2) = target varname
