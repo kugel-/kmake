@@ -4,4 +4,4 @@ LIBS-y := -lc
 bin-y  := e esh
 
 esh-DEPS-y := a/libx.la
-esh-LIBS-y := -lfoo
+esh-LIBS-y := -lz
