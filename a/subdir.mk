@@ -5,4 +5,4 @@ CFLAGS-y := -O1
 libs-y   := liba.a libx.la
 
 liba-y   := a.c
-liba-CFLAGS := -O2
+liba-CFLAGS-y := -O2

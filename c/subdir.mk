@@ -1,12 +1,12 @@
-bin-y   := c csh cxx
+bin-y       := c csh cxx
 
-c-CFLAGS  := -O1
+c-CFLAGS-y  := -O1
 
-c-y       := c.c
-c-deps-y  := a/liba.a
+c-y         := c.c
+c-DEPS-y    := a/liba.a
 
-csh-deps-y  := s/libshl.la
-csh-deps-y  += s/libshl2.la
-csh-deps-y  += a/y/liby.la
+csh-DEPS-y  := s/libshl.la
+csh-DEPS-y  += s/libshl2.la
+csh-DEPS-y  += a/y/liby.la
 
-cxx-y     := cxx.cpp
+cxx-y       := cxx.cpp

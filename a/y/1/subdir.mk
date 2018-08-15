@@ -1,4 +1,4 @@
-bin-y    := one
+bin-y        := one
 
-one-CFLAGS := -g
-one-y      := 1.c
+one-CFLAGS-y := -g
+one-y        := 1.c

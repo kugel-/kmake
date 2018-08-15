@@ -44,6 +44,7 @@ define clearvars
 # clear each $xx-y
 $(foreach v,$(prog_vars) $(lib_vars) $(data_vars),$(call clearvar,$(v)))
 $(foreach v,CPPFLAGS CFLAGS CXXFLAGS LDFLAGS,$(call clearvar,$(v)))
+$(foreach v,DEPS LIBS,$(call clearvar,$(v)))
 extra-progs :=
 extra-libs :=
 extra-data :=
@@ -81,9 +82,9 @@ endef
 varname = $(notdir $(basename $(1)))
 prefixtarget = $(foreach src,$(1),$(addprefix $(dir $(src))$(2)-,$(call varname,$(src))))
 
-getvar = $($(call varname,$(1))-$(2))
+getvar = $($(call varname,$(1))$(if $(2),-$(2))-y)
 # call with $(1) = target (incl. extension)
-getsrc = $(addprefix $(dir $(1)),$(or $(call getvar,$(1),y),$(call varname,$(1)).c)) $(call getvar,$(1),ext-y)
+getsrc = $(addprefix $(dir $(1)),$(or $(call getvar,$(1)),$(call varname,$(1)).c)) $(call getvar,$(1),ext)
 # call with $(1) = target (incl. extension)
 getobjext = $(if $(filter %.la,$(1)),lo,o)
 # call with $(1) = src file, $(2) = target varname
@@ -93,7 +94,6 @@ getobjfile = $(call getobjbase,$(1),$(call varname,$(2))).$(call getobjext,$(2))
 # call with $(1) = target (incl. extension)
 getobj = $(foreach src,$(call getsrc,$(1)),$(call getobjfile,$(src),$(1)))
 # call with $(1) = target (incl. extension)
-getdep = $(call getvar,$(1),deps-y)
 # use libtool if building a shared library
 is_cxx = $(filter %.cpp,$($(call varname,$(1))-y))
 getcc = $(if $(call is_cxx,$(1)),$(CXX),$(CC))
@@ -108,11 +108,19 @@ ALL_PROGS = $(foreach v,$(prog_vars),$(all_$(v)))
 ALL_LIBS  = $(foreach v,$(lib_vars),$(all_$(v)))
 ALL_DATA  = $(foreach v,$(data_vars),$(all_$(v)))
 
-# Prepend variable $(2)-y to $(1)-(2)
-# e.g. prepend CFLAGS-y to libfoo-CFLAGS
-define prepend_flags
-$(1)-$(2) := $($(2)-y) $($(1)-$(2))
+# Prepend variable $(2)-y to $(1)-(2)-y
+# e.g. prepend CFLAGS-y to libfoo-CFLAGS-y
+define _prepend_flags
+$(1)-$(2)-y := $(call getvar,$(2)) $(call getvar,$(1),$(2))
 endef
+prepend_flags = $(eval $(call _prepend_flags,$(call varname,$(1)),$(2)))
+
+# Append variable $(2)-y to $(1)-(2)
+# e.g. prepend LIBS-y to libfoo-LIBS-y
+define _append_flags
+$(1)-$(2)-y := $(call getvar,$(1),$(2)) $(call getvar,$(2))
+endef
+append_flags = $(eval $(call _append_flags,$(call varname,$(1)),$(2)))
 
 # Call with $1: object file, $2: src file
 define obj_rule
@@ -134,7 +142,7 @@ $(OUTDIR)$(1): COMPILE_FLAGS = $(if $(call is_cxx,$(1)),$(ALL_CXXFLAGS) $(CXXFLA
 $(OUTDIR)$(1): COMPILE = $(call getcc,$(1))
 $(OUTDIR)$(1): LINK = $(call getcc,$(1))
 $(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getobj,$(1)))
-$(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getdep,$(1)))
+$(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getvar,$(1),DEPS))
 
 $(call varname,$(1))-obj += $(call getobj,$(1))
 
@@ -204,7 +212,7 @@ $(OUTDIR)%.lo:
 $(OUTDIR)%.la:
 	$(call printcmd,AR,$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(LIBTOOL_LINK)  -rpath $(libdir) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+
+	$(Q)$(LIBTOOL_LINK)  -rpath $(libdir) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+ $(call getvar,$(@),LIBS)
 
 $(OUTDIR)%.a:
 	$(call printcmd,AR,$@)
@@ -214,6 +222,6 @@ $(OUTDIR)%.a:
 $(addprefix $(OUTDIR),$(ALL_PROGS)):
 	$(call printcmd,LD,$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(LIBTOOL_LINK) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+
+	$(Q)$(LIBTOOL_LINK) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+ $(call getvar,$(@),LIBS)
 
 -include $(filter %.d,$(cleanfiles))

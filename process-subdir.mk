@@ -10,12 +10,19 @@ data_vars  := $(sort $(data_vars) $(extra-data))
 $(foreach v,$(prog_vars) $(lib_vars) $(data_vars),$(if $($(v)-y),$(eval all_$(v) += $(addprefix $(src),$($(v)-y)))))
 $(foreach v,$(prog_vars) $(lib_vars) $(data_vars),$(if $($(v)-dir),,$(error Must specify $(v)-dir in $(src)subdir.mk)))
 
-# prepends CFLAGS-y to $(bin)-CFLAGS (and friends)
+# prepends CFLAGS-y to $(bin)-CFLAGS-y (and friends)
 XFLAGS = CPPFLAGS CFLAGS CXXFLAGS LDFLAGS
-$(forach flag,$(XFLAGS),                                             \
-	$(foreach v,$(prog_vars) $(lib_vars),                            \
-		$(foreach bin,$($(v)-y),                                     \
-			$(call prepend_flags,$(call varname,$(bin)),$(flag)))))
+$(foreach flag,$(XFLAGS),\
+	$(foreach v,$(prog_vars) $(lib_vars),\
+		$(foreach bin,$($(v)-y),$(call prepend_flags,$(bin),$(flag)))))
+
+# Like above, except DEPS and LIBS should be appended
+# per-directory -l options should occur last (as LIBS usually holds
+# system libraries). Likewise, DEPS must occur before LIBS.
+XFLAGS = DEPS LIBS
+$(foreach flag,$(XFLAGS),\
+	$(foreach v,$(prog_vars) $(lib_vars),\
+		$(foreach bin,$($(v)-y),$(call append_flags,$(bin),$(flag)))))
 
 $(eval $(call clearvars))
 
