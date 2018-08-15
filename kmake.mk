@@ -118,9 +118,10 @@ getcmdfile = $(call getdepsdir,$(1))$(notdir $(1)).cmd
 getdepfile = $(call getdepsdir,$(1))$(notdir $(1)).dep
 getdepopt = -MD -MP -MF$(call getdepfile,$(1))
 
-ALL_PROGS = $(foreach v,$(prog_vars),$(all_$(v)))
-ALL_LIBS  = $(foreach v,$(lib_vars),$(all_$(v)))
-ALL_DATA  = $(foreach v,$(data_vars),$(all_$(v)))
+ALL_PROGS  = $(foreach v,$(prog_vars),$(all_$(v)))
+ALL_LIBS   = $(foreach v,$(lib_vars),$(all_$(v)))
+ALL_DATA   = $(foreach v,$(data_vars),$(all_$(v)))
+ALL_TESTS  = $(all_tests)
 
 # Prepend variable $(2)-y to $(1)-(2)-y
 # e.g. prepend CFLAGS-y to libfoo-CFLAGS-y
@@ -169,19 +170,19 @@ $(foreach f,$(call getsrc,$(1)),$(eval $(call obj_rule,$(call getobjfile,$(f),$(
 endef
 
 $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
-$(foreach lib,$(ALL_LIBS),$(eval $(call prog_rule,$(lib))))
-$(foreach prog,$(ALL_PROGS),$(eval $(call prog_rule,$(prog))))
+$(foreach prog,$(ALL_LIBS) $(ALL_PROGS) $(ALL_TESTS),$(eval $(call prog_rule,$(prog))))
 
 changedir = $(if $(OUTDIR),cd $(OUTDIR))
 stripwd = $(if $(STRIPWD),$(patsubst $(OUTDIR)%,%,$(1)),$(1))
 printcmd = $(if $(Q),@printf "  %-8s%s\n" "$(1)" "$(call stripwd,$(2))")
 
-.PHONY: FORCE all clean install install-progs install-libs install-data
+.PHONY: FORCE all check clean install install-progs install-libs install-data
 
 FORCE: ;
 
 all: $(addprefix $(OUTDIR),$(ALL_LIBS))
 all: $(addprefix $(OUTDIR),$(ALL_PROGS))
+check: $(addprefix $(OUTDIR),$(ALL_TESTS))
 
 $(addprefix $(OUTDIR),$(all_$*))
 
@@ -239,7 +240,7 @@ $(OUTDIR)%.a:
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(AR) rcs $@ $+
 
-$(addprefix $(OUTDIR),$(ALL_PROGS)):
+$(addprefix $(OUTDIR),$(ALL_PROGS) $(ALL_TESTS)):
 	$(call printcmd,LD,$@)
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(LIBTOOL_LINK) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+ $(call getvar,$(@),LIBS)

@@ -7,7 +7,8 @@ prog_vars  := $(sort $(prog_vars) $(extra-progs))
 lib_vars   := $(sort $(lib_vars) $(extra-libs))
 data_vars  := $(sort $(data_vars) $(extra-data))
 
-$(foreach v,$(prog_vars) $(lib_vars) $(data_vars),$(if $($(v)-y),$(eval all_$(v) += $(addprefix $(src),$($(v)-y)))))
+# There is only a single tests variable, and the programs need not be installed
+$(foreach v,$(prog_vars) $(lib_vars) $(data_vars) tests,$(if $($(v)-y),$(eval all_$(v) += $(addprefix $(src),$($(v)-y)))))
 $(foreach v,$(prog_vars) $(lib_vars) $(data_vars),$(if $($(v)-dir),,$(error Must specify $(v)-dir in $(src)subdir.mk)))
 
 # prepends CFLAGS-y to $(bin)-CFLAGS-y (and friends)
