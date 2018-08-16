@@ -14,7 +14,7 @@ $(foreach v,$(prog_vars) $(lib_vars) $(data_vars),$(if $($(v)-dir),,$(error Must
 # prepends CFLAGS-y to $(bin)-CFLAGS-y (and friends)
 XFLAGS = CPPFLAGS CFLAGS CXXFLAGS LDFLAGS
 $(foreach flag,$(XFLAGS),\
-	$(foreach v,$(prog_vars) $(lib_vars),\
+	$(foreach v,$(prog_vars) $(lib_vars) tests,\
 		$(foreach bin,$($(v)-y),$(call prepend_flags,$(bin),$(flag)))))
 
 # Like above, except DEPS and LIBS should be appended
@@ -22,7 +22,7 @@ $(foreach flag,$(XFLAGS),\
 # system libraries). Likewise, DEPS must occur before LIBS.
 XFLAGS = DEPS LIBS
 $(foreach flag,$(XFLAGS),\
-	$(foreach v,$(prog_vars) $(lib_vars),\
+	$(foreach v,$(prog_vars) $(lib_vars) tests,\
 		$(foreach bin,$($(v)-y),$(call append_flags,$(bin),$(flag)))))
 
 $(eval $(call clearvars))
