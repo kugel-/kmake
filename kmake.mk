@@ -1,5 +1,7 @@
 .DEFAULT_GOAL := all
 
+FORCE: ;
+
 AT = @
 ifeq ($(V),2)
 QQ :=
@@ -93,7 +95,7 @@ src := $(1)
 include $(SRCDIR)process-subdir.mk
 endef
 
-varname = $(notdir $(basename $(1)))
+varname = $(foreach x,$(1),$(notdir $(basename $(x))))
 prefixtarget = $(foreach src,$(1),$(addprefix $(dir $(src))$(2)-,$(call varname,$(src))))
 
 getvar = $($(call varname,$(1))$(if $(2),-$(2))-y)
@@ -169,8 +171,14 @@ $(call varname,$(1))-obj += $(call getobj,$(1))
 $(foreach f,$(call getsrc,$(1)),$(eval $(call obj_rule,$(call getobjfile,$(f),$(1)),$(f))))
 endef
 
+define test_rule
+run-test-$(call varname,$(1)): $(OUTDIR)$(1)
+run-test-$(call varname,$(1)): FORCE
+endef
+
 $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
 $(foreach prog,$(ALL_LIBS) $(ALL_PROGS) $(ALL_TESTS),$(eval $(call prog_rule,$(prog))))
+$(foreach test,$(ALL_TESTS),$(eval $(call test_rule,$(test))))
 
 changedir = $(if $(OUTDIR),cd $(OUTDIR))
 stripwd = $(if $(STRIPWD),$(patsubst $(OUTDIR)%,%,$(1)),$(1))
@@ -178,13 +186,16 @@ printcmd = $(if $(Q),@printf "  %-8s%s\n" "$(1)" "$(call stripwd,$(2))")
 
 .PHONY: FORCE all check clean install install-progs install-libs install-data
 
-FORCE: ;
+DEFAULT_DRIVER = "sh -c"
+
+run-test-%:
+	$(Q)driver=$(or $(call getvar,$*,DRIVER),$(DEFAULT_DRIVER)); $$driver $<; \
+	if [ $$?=0 ] ; then echo PASS: $<; else echo FAIL: $<; fi
 
 all: $(addprefix $(OUTDIR),$(ALL_LIBS))
 all: $(addprefix $(OUTDIR),$(ALL_PROGS))
-check: $(addprefix $(OUTDIR),$(ALL_TESTS))
-
-$(addprefix $(OUTDIR),$(all_$*))
+#~ check: $(addprefix run-test-,$(call varname,$(ALL_TESTS)))
+check: $(addprefix run-test-,$(call varname,$(ALL_TESTS)))
 
 clean:
 	$(call printcmd,RM,$(cleanfiles))
