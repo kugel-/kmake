@@ -95,6 +95,9 @@ src := $(1)
 include $(SRCDIR)process-subdir.mk
 endef
 
+objexts := .la .a .lo .o
+objpats := $(addprefix %,$(objexts))
+
 varname = $(foreach x,$(1),$(notdir $(basename $(x))))
 prefixtarget = $(foreach src,$(1),$(addprefix $(dir $(src))$(2)-,$(call varname,$(src))))
 
@@ -243,12 +246,12 @@ $(OUTDIR)%.lo:
 	$(AT)mkdir -p $(dir $@)/.deps
 	$(Q)$(LIBTOOL_COMPILE) $(call getdepopt,$@) $(ALL_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS) -c -o $@ $<
 
-$(OUTDIR)%.la:
+$(addprefix $(OUTDIR),$(filter %.la,$(ALL_LIBS))):
 	$(call printcmd,LD,$@)
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(LIBTOOL_LINK)  -rpath $(libdir) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+ $(call getvar,$(@),LIBS)
 
-$(OUTDIR)%.a:
+$(addprefix $(OUTDIR),$(filter %.a,$(ALL_LIBS))):
 	$(call printcmd,AR,$@)
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(AR) rcs $@ $+
@@ -257,5 +260,7 @@ $(addprefix $(OUTDIR),$(ALL_PROGS) $(ALL_TESTS)):
 	$(call printcmd,LD,$@)
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(LIBTOOL_LINK) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+ $(call getvar,$(@),LIBS)
+
+.SUFFIXES: $(objexts)
 
 -include $(filter %.d,$(cleanfiles))
