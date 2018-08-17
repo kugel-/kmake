@@ -66,7 +66,7 @@ extra-libs :=
 extra-data :=
 endef
 
-subdir-y    ?=
+subdir-y    ?= .
 
 prog_vars   := bin sbin
 lib_vars    := libs
@@ -91,7 +91,7 @@ ALL_CXXFLAGS ?= -O2 -g
 
 
 define inc_subdir
-src := $(1)
+src := $(filter-out .,$(1))
 include $(SRCDIR)process-subdir.mk
 endef
 
@@ -101,11 +101,12 @@ objpats := $(addprefix %,$(objexts))
 varname = $(foreach x,$(1),$(notdir $(basename $(x))))
 prefixtarget = $(foreach src,$(1),$(addprefix $(dir $(src))$(2)-,$(call varname,$(src))))
 
+addpath = $(addprefix $(filter-out ./,$(dir $(1))),$(2))
 getvar = $($(call varname,$(1))$(if $(2),-$(2))-y)
 # call with $(1) = target (incl. extension)
-getsrc = $(addprefix $(dir $(1)),$(or $(filter-out $(objpats),$(call getvar,$(1))),$(call varname,$(1)).$(DEFAULT_EXT))) $(filter-out $(objpats),$(call getvar,$(1),DEPS))
+getsrc = $(call addpath,$(1),$(or $(filter-out $(objpats),$(call getvar,$(1))),$(call varname,$(1)).$(DEFAULT_EXT))) $(filter-out $(objpats),$(call getvar,$(1),DEPS))
 # call with $(1) = target (incl. extension)
-getnsrc = $(addprefix $(dir $(1)),$(filter $(objpats),$(call getvar,$(1)))) $(filter $(objpats),$(call getvar,$(1),DEPS))
+getnsrc = $(call addpath,$(1),$(filter $(objpats),$(call getvar,$(1)))) $(filter $(objpats),$(call getvar,$(1),DEPS))
 # call with $(1) = target (incl. extension)
 getobjext = $(if $(filter %.la,$(1)),lo,o)
 # call with $(1) = src file, $(2) = target varname
