@@ -103,7 +103,9 @@ prefixtarget = $(foreach src,$(1),$(addprefix $(dir $(src))$(2)-,$(call varname,
 
 getvar = $($(call varname,$(1))$(if $(2),-$(2))-y)
 # call with $(1) = target (incl. extension)
-getsrc = $(addprefix $(dir $(1)),$(or $(call getvar,$(1)),$(call varname,$(1)).$(DEFAULT_EXT))) $(call getvar,$(1),ext)
+getsrc = $(addprefix $(dir $(1)),$(or $(filter-out $(objpats),$(call getvar,$(1))),$(call varname,$(1)).$(DEFAULT_EXT))) $(filter-out $(objpats),$(call getvar,$(1),DEPS))
+# call with $(1) = target (incl. extension)
+getnsrc = $(addprefix $(dir $(1)),$(filter $(objpats),$(call getvar,$(1)))) $(filter $(objpats),$(call getvar,$(1),DEPS))
 # call with $(1) = target (incl. extension)
 getobjext = $(if $(filter %.la,$(1)),lo,o)
 # call with $(1) = src file, $(2) = target varname
@@ -111,7 +113,7 @@ getobjbase = $(call prefixtarget,$(1),$(2))
 # call with $(1) = src file, $(2) = target (incl. extension)
 getobjfile = $(call getobjbase,$(1),$(call varname,$(2))).$(call getobjext,$(2))
 # call with $(1) = target (incl. extension)
-getobj = $(foreach src,$(call getsrc,$(1)),$(call getobjfile,$(src),$(1)))
+getobj = $(foreach src,$(call getsrc,$(1)),$(call getobjfile,$(src),$(1))) $(call getnsrc,$(1))
 # call with $(1) = target (incl. extension)
 # use libtool if building a shared library
 is_cxx = $(filter %.cpp,$(call getsrc,$(1)))
@@ -165,7 +167,6 @@ $(OUTDIR)$(1): COMPILE = $(call getcc,$(1))
 $(OUTDIR)$(1): LINK = $(call getcc,$(1))
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(1)),CXX,CC)
 $(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getobj,$(1)))
-$(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getvar,$(1),DEPS))
 
 $(if $(OUTDIR),$(eval $(1): $(OUTDIR)$(1)))
 
