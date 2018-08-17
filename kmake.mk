@@ -180,11 +180,12 @@ $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
 $(foreach prog,$(ALL_LIBS) $(ALL_PROGS) $(ALL_TESTS),$(eval $(call prog_rule,$(prog))))
 $(foreach test,$(ALL_TESTS),$(eval $(call test_rule,$(test))))
 
+
 changedir = $(if $(OUTDIR),cd $(OUTDIR))
 stripwd = $(if $(STRIPWD),$(patsubst $(OUTDIR)%,%,$(1)),$(1))
 printcmd = $(if $(Q),@printf "  %-8s%s\n" "$(1)" "$(call stripwd,$(2))")
 
-.PHONY: FORCE all check clean install install-progs install-libs install-data
+.PHONY: FORCE all libs progs check clean install install-progs install-libs install-data
 
 DEFAULT_DRIVER = "sh -c"
 
@@ -192,8 +193,9 @@ run-test-%:
 	$(Q)driver=$(or $(call getvar,$*,DRIVER),$(DEFAULT_DRIVER)); $$driver $<; \
 	if [ $$?=0 ] ; then echo PASS: $<; else echo FAIL: $<; fi
 
-all: $(addprefix $(OUTDIR),$(ALL_LIBS))
-all: $(addprefix $(OUTDIR),$(ALL_PROGS))
+libs: $(addprefix $(OUTDIR),$(ALL_LIBS))
+progs: $(addprefix $(OUTDIR),$(ALL_PROGS))
+all: libs progs
 #~ check: $(addprefix run-test-,$(call varname,$(ALL_TESTS)))
 check: $(addprefix run-test-,$(call varname,$(ALL_TESTS)))
 
