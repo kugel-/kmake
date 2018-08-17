@@ -225,7 +225,8 @@ install-progs: $(addprefix install-prog-,$(prog_vars))
 
 install-data-%: FORCE
 	$(if $(all_$*),$(call printcmd,INSTALL,$(addprefix $(SRCDIR),$(all_$*))))
-	$(Q)$(INSTALL_PROGRAM) -D -t $(DESTDIR)$($*-dir) $(addprefix $(SRCDIR),$(all_$*))
+	$(AT)mkdir -p $(DESTDIR)$($*-dir)
+	$(if $(all_$*),$$(Q)$(INSTALL_PROGRAM) -D -t $(DESTDIR)$($*-dir) $(addprefix $(SRCDIR),$(all_$*)))
 
 install-data: $(addprefix install-data-,$(data_vars))
 
