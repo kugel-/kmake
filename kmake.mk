@@ -66,7 +66,7 @@ endef
 
 define clearvars
 # clear each $xx-y
-$(foreach v,$(prog_vars) $(lib_vars) $(data_vars) tests,$(call clearvar,$(v)))
+$(foreach v,$(prog_vars) $(lib_vars) $(data_vars) tests clean,$(call clearvar,$(v)))
 $(foreach v,CPPFLAGS CFLAGS CXXFLAGS LDFLAGS,$(call clearvar,$(v)))
 $(foreach v,DEPS LIBS,$(call clearvar,$(v)))
 extra-progs :=
@@ -100,6 +100,7 @@ ALL_CXXFLAGS ?= -O2 -g
 
 define inc_subdir
 src := $(filter-out .,$(1))
+objdir := $(OUTDIR)$$(src)
 include $(SRCDIR)process-subdir.mk
 endef
 
@@ -193,7 +194,6 @@ $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
 $(foreach prog,$(ALL_LIBS) $(ALL_PROGS) $(ALL_TESTS),$(eval $(call prog_rule,$(prog))))
 $(foreach test,$(ALL_TESTS),$(eval $(call test_rule,$(test))))
 
-
 changedir = $(if $(OUTDIR),cd $(OUTDIR))
 stripwd = $(if $(STRIPWD),$(patsubst $(OUTDIR)%,%,$(1)),$(1))
 printcmd = $(if $(Q),@printf "  %-8s%s\n" "$(1)" "$(call stripwd,$(2))")
@@ -214,8 +214,8 @@ all: libs progs
 check: $(addprefix run-test-,$(call varname,$(filter $(PARTDIR)%,$(ALL_TESTS))))
 
 clean:
-	$(call printcmd,RM,$(cleanfiles))
-	$(Q)$(LIBTOOL_RM) $(cleanfiles)
+	$(call printcmd,RM,$(cleanfiles) $(all_clean))
+	$(Q)$(LIBTOOL_RM) $(cleanfiles) $(all_clean)
 
 install: install-libs install-progs install-data
 
