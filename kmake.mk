@@ -48,6 +48,14 @@ ifneq ($(OUTDIR),)
 OUTDIR := $(OUTDIR)/
 endif
 
+ifneq ($(M),)
+PARTDIR := $(M)
+endif
+
+ifneq ($(PARTDIR),)
+PARTDIR := $(PARTDIR)/
+endif
+
 empty :=
 space := $(empty) $(empty)
 
@@ -198,11 +206,12 @@ run-test-%:
 	$(Q)driver=$(or $(call getvar,$*,DRIVER),$(DEFAULT_DRIVER)); $$driver $<; \
 	if [ $$?=0 ] ; then echo PASS: $<; else echo FAIL: $<; fi
 
-libs: $(addprefix $(OUTDIR),$(ALL_LIBS))
-progs: $(addprefix $(OUTDIR),$(ALL_PROGS))
+# PARTDIR restricts the selected targets to a given directory (partial build)
+libs: $(addprefix $(OUTDIR),$(filter $(PARTDIR)%,$(ALL_LIBS)))
+progs: $(addprefix $(OUTDIR),$(filter $(PARTDIR)%,$(ALL_PROGS)))
 all: libs progs
 #~ check: $(addprefix run-test-,$(call varname,$(ALL_TESTS)))
-check: $(addprefix run-test-,$(call varname,$(ALL_TESTS)))
+check: $(addprefix run-test-,$(call varname,$(filter $(PARTDIR)%,$(ALL_TESTS))))
 
 clean:
 	$(call printcmd,RM,$(cleanfiles))
