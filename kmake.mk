@@ -66,7 +66,7 @@ endef
 
 define clearvars
 # clear each $xx-y
-$(foreach v,$(prog_vars) $(lib_vars) $(data_vars),$(call clearvar,$(v)))
+$(foreach v,$(prog_vars) $(lib_vars) $(data_vars) tests,$(call clearvar,$(v)))
 $(foreach v,CPPFLAGS CFLAGS CXXFLAGS LDFLAGS,$(call clearvar,$(v)))
 $(foreach v,DEPS LIBS,$(call clearvar,$(v)))
 extra-progs :=
