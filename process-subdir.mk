@@ -1,6 +1,10 @@
 subdir-y :=
 
-include $(SRCDIR)$(src)subdir.mk
+# SRCDIR points to the root directory (where kmake.mk is) if including
+# kmake.mk in a build-directory makefile (not using O=$builddir).
+# srcdir points to the directory of each subdir.mk and is relative
+# SRCDIR.
+include $(SRCDIR)$(srcdir)subdir.mk
 
 # remember custom vars for installation
 prog_vars  := $(sort $(prog_vars) $(extra-progs))
@@ -8,9 +12,9 @@ lib_vars   := $(sort $(lib_vars) $(extra-libs))
 data_vars  := $(sort $(data_vars) $(extra-data))
 
 # There is only a single tests variable, and the programs need not be installed
-$(foreach v,$(prog_vars) $(lib_vars) $(data_vars) tests,$(if $($(v)-y),$(eval all_$(v) += $(addprefix $(src),$($(v)-y)))))
+$(foreach v,$(prog_vars) $(lib_vars) $(data_vars) tests,$(if $($(v)-y),$(eval all_$(v) += $(addprefix $(srcdir),$($(v)-y)))))
 $(foreach v,clean,$(if $($(v)-y),$(eval all_$(v) += $($(v)-y))))
-$(foreach v,$(prog_vars) $(lib_vars) $(data_vars),$(if $($(v)-dir),,$(error Must specify $(v)-dir in $(src)subdir.mk)))
+$(foreach v,$(prog_vars) $(lib_vars) $(data_vars),$(if $($(v)-dir),,$(error Must specify $(v)-dir in $(srcdir)subdir.mk)))
 
 # prepends CFLAGS-y to $(bin)-CFLAGS-y (and friends)
 XFLAGS = CPPFLAGS CFLAGS CXXFLAGS LDFLAGS
@@ -28,4 +32,4 @@ $(foreach flag,$(XFLAGS),\
 
 $(eval $(call clearvars))
 
-$(foreach dir,$(addprefix $(src),$(subdir-y)),$(eval $(call inc_subdir,$(dir))))
+$(foreach dir,$(addprefix $(srcdir),$(subdir-y)),$(eval $(call inc_subdir,$(dir))))

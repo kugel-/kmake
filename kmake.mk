@@ -99,8 +99,8 @@ ALL_CXXFLAGS ?= -O2 -g
 
 
 define inc_subdir
-src := $(filter-out .,$(1))
-objdir := $(OUTDIR)$$(src)
+srcdir := $(filter-out .,$(1))
+objdir := $(OUTDIR)$$(srcdir)
 include $(SRCDIR)process-subdir.mk
 endef
 
