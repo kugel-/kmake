@@ -107,13 +107,15 @@ endef
 objexts := .la .a .lo .o
 objpats := $(addprefix %,$(objexts))
 
-varname = $(foreach x,$(1),$(notdir $(basename $(x))))
-prefixtarget = $(foreach src,$(1),$(addprefix $(dir $(src))$(2)-,$(call varname,$(src))))
+varname = $(foreach x,$(1),$(notdir $(x)))
+prefixtarget = $(foreach src,$(1),$(addprefix $(dir $(src))$(2)-,$(basename $(call varname,$(src)))))
 
 addpath = $(addprefix $(filter-out ./,$(dir $(1))),$(2))
 getvar = $($(call varname,$(1))$(if $(2),-$(2))-y)
 # call with $(1) = target (incl. extension)
-getsrc = $(call addpath,$(1),$(or $(filter-out $(objpats),$(call getvar,$(1))),$(call varname,$(1)).$(DEFAULT_EXT))) $(filter-out $(objpats),$(call getvar,$(1),DEPS))
+getdefsrc = $(basename $(call varname,$(1))).$(DEFAULT_EXT)
+# call with $(1) = target (incl. extension)
+getsrc = $(call addpath,$(1),$(or $(filter-out $(objpats),$(call getvar,$(1))),$(call getdefsrc,$(1)))) $(filter-out $(objpats),$(call getvar,$(1),DEPS))
 # call with $(1) = target (incl. extension)
 getnsrc = $(call addpath,$(1),$(filter $(objpats),$(call getvar,$(1)))) $(filter $(objpats),$(call getvar,$(1),DEPS))
 # call with $(1) = target (incl. extension)

@@ -1,3 +1,3 @@
-libs-y   := libb.a
+libs-y     := libb.a
 
-libb-y   := a.c b.c
+libb.a-y   := a.c b.c

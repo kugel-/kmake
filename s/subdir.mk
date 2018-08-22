@@ -1,7 +1,7 @@
-libs-y            := libshl.la libshl2.la
+libs-y               := libshl.la libshl2.la
 
-libshl-y          := s.c
+libshl.la-y          := s.c
 
-libshl2-y         := s2.c
-libshl2-DEPS-y    := a/libx.la
-libshl2-LDFLAGS-y := -no-undefined
+libshl2.la-y         := s2.c
+libshl2.la-DEPS-y    := a/libx.la
+libshl2.la-LDFLAGS-y := -no-undefined

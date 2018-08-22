@@ -1,8 +1,8 @@
-subdir-y := y/ z/
+subdir-y          := y/ z/
 
-CFLAGS-y := -O1
+CFLAGS-y          := -O1
 
-libs-y   := liba.a libx.la
+libs-y            := liba.a libx.la
 
-liba-y   := a.c
-liba-CFLAGS-y := -O2
+liba.a-y          := a.c
+liba.a-CFLAGS-y   := -O2
