@@ -79,6 +79,7 @@ subdir-y    ?= .
 prog_vars   := bin sbin
 lib_vars    := libs
 data_vars   := data sysconf
+gen_vars    := $(extra-gen)
 
 bin-dir     := $(bindir)
 sbin-dir    := $(sbindir)
@@ -113,7 +114,7 @@ prefixtarget = $(foreach src,$(1),$(addprefix $(dir $(src))$(2)-,$(basename $(ca
 addpath = $(addprefix $(filter-out ./,$(dir $(1))),$(2))
 getvar = $($(call varname,$(1))$(if $(2),-$(2))-y)
 # call with $(1) = target (incl. extension)
-getdefsrc = $(basename $(call varname,$(1))).$(DEFAULT_EXT)
+getdefsrc = $(basename $(call varname,$(1))).$(or $($(call varname,$(1))-suffix),$(DEFAULT_EXT))
 # call with $(1) = target (incl. extension)
 getsrc = $(call addpath,$(1),$(or $(filter-out $(objpats),$(call getvar,$(1))),$(call getdefsrc,$(1)))) $(filter-out $(objpats),$(call getvar,$(1),DEPS))
 # call with $(1) = target (incl. extension)
@@ -177,6 +178,7 @@ $(OUTDIR)$(1): LDFLAGS = $(call getvar,$(1),LDFLAGS)
 $(OUTDIR)$(1): COMPILE_FLAGS = $(if $(call is_cxx,$(1)),$$(ALL_CXXFLAGS) $$(CXXFLAGS),$$(ALL_CFLAGS) $$(CFLAGS))
 $(OUTDIR)$(1): COMPILE = $(call getcc,$(1))
 $(OUTDIR)$(1): LINK = $(call getcc,$(1))
+$(OUTDIR)$(1): CMD = $$(COMPILE) $$(ALL_CPPFLAGS) $$(CPPFLAGS) $$(COMPILE_FLAGS)
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(1)),CXX,CC)
 $(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getobj,$(1)))
 
@@ -192,9 +194,24 @@ run-test-$(call varname,$(1)): $(OUTDIR)$(1)
 run-test-$(call varname,$(1)): FORCE
 endef
 
+define gen_recipe
+$(addprefix $(OUTDIR),$(all_$(1))):
+	$$(call printcmd,$$(PRINTCMD),$$@)
+	$(Q)$($(1)_recipe)
+
+ifneq ($(OUTDIR),)
+vpath $(all_$(1)) $(OUTDIR)
+endif
+
+endef
+
 $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
 $(foreach prog,$(ALL_LIBS) $(ALL_PROGS) $(ALL_TESTS),$(eval $(call prog_rule,$(prog))))
 $(foreach test,$(ALL_TESTS),$(eval $(call test_rule,$(test))))
+
+$(foreach v,$(gen_vars),$(foreach gen,$(all_$(v)),$(eval $(call varname,$(gen))-suffix ?= $($(v)-suffix))))
+$(foreach v,$(gen_vars),$(foreach gen,$(all_$(v)),$(eval $(call $(v)_rule,$(gen)))))
+$(foreach v,$(gen_vars),$(eval $(if $(all_$(v)),$(call gen_recipe,$(v)))))
 
 changedir = $(if $(OUTDIR),cd $(OUTDIR))
 stripwd = $(if $(STRIPWD),$(patsubst $(OUTDIR)%,%,$(1)),$(1))
@@ -244,7 +261,7 @@ install-data: $(addprefix install-data-,$(data_vars))
 
 $(OUTDIR)%.cmd: FORCE
 	$(AT)mkdir -p $(dir $@)
-	$(QQ)(cmd="$(COMPILE) $(ALL_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS)" ; \
+	$(QQ)(cmd="$(CMD)" ; \
 	new=$$(echo $$cmd | md5sum | cut -c-32); \
 	uptodate= ; \
 	if [ -f "$@" ]; then old=$$(cut -c-32 $@); test "$$old" = "$$new" && uptodate=y ; fi ;\
