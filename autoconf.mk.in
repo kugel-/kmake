@@ -15,3 +15,5 @@ builddir=@builddir@
 srcdir=@srcdir@
 
 CC=@CC@
+
+@HAVE_FOO_COND@
