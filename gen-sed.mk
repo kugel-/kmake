@@ -1,4 +1,5 @@
 extra-gen   += sed
+extra-flags += SED_SCRIPT
 
 define sed_rule
 cleanfiles += $(OUTDIR)$(1)

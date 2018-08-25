@@ -81,16 +81,23 @@ endef
 
 subdir-y    ?= .
 
-prog_vars   := bin sbin
-lib_vars    := libs
-data_vars   := data sysconf
-gen_vars    := $(extra-gen)
+prog_vars     := bin sbin
+prog_vars     += $(extra-progs)
+lib_vars      := libs
+lib_vars      += $(extra-libs)
+data_vars     := data sysconf
+data_vars     += $(extra-data)
+gen_vars      := $(extra-gen)
+flag_names    := CPPFLAGS CFLAGS CXXFLAGS LDFLAGS
+flag_names    += $(extra-flags)
+aflag_names   := DEPS LIBS
+aflag_names   += $(extra-append-flags)
 
-bin-dir     := $(bindir)
-sbin-dir    := $(sbindir)
-libs-dir    := $(libdir)
-data-dir    := $(datadir)
-sysconf-dir := $(sysconfdir)
+bin-dir       := $(bindir)
+sbin-dir      := $(sbindir)
+libs-dir      := $(libdir)
+data-dir      := $(datadir)
+sysconf-dir   := $(sysconfdir)
 
 #define reset_vars =
 #LOCAL_SRC :=
@@ -297,6 +304,6 @@ $(addprefix $(OUTDIR),$(ALL_PROGS) $(ALL_TESTS)):
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(LIBTOOL_LINK) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+ $(call getvar,$(@),LIBS)
 
-.SUFFIXES: $(objexts)
+.SUFFIXES: $(objexts) .mk
 
 -include $(filter %.d,$(cleanfiles))
