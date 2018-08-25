@@ -207,9 +207,7 @@ run-test-$(call varname,$(1)): FORCE
 endef
 
 define gen_recipe
-$(addprefix $(OUTDIR),$(all_$(1))):
-	$$(call printcmd,$$(PRINTCMD),$$@)
-	$(Q)$($(1)_recipe)
+$(call $(1)_recipe,$(all_$(1)))
 
 ifneq ($(OUTDIR),)
 vpath $(all_$(1)) $(OUTDIR)
