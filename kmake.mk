@@ -56,6 +56,11 @@ ifneq ($(PARTDIR),)
 PARTDIR := $(PARTDIR)/
 endif
 
+KMAKEDIR := $(dir $(lastword $(MAKEFILE_LIST)))
+ifeq ($(KMAKEDIR),.)
+KMAKEDIR :=
+endif
+
 empty :=
 space := $(empty) $(empty)
 
@@ -102,7 +107,7 @@ ALL_CXXFLAGS ?= -O2 -g
 define inc_subdir
 srcdir := $(filter-out .,$(1))
 objdir := $(OUTDIR)$$(srcdir)
-include $(SRCDIR)process-subdir.mk
+include $(KMAKEDIR)process-subdir.mk
 endef
 
 objexts := .la .a .lo .o
