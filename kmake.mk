@@ -153,6 +153,7 @@ getdepopt = -MD -MP -MF$(call getdepfile,$(1))
 ALL_PROGS  = $(foreach v,$(prog_vars),$(all_$(v)))
 ALL_LIBS   = $(foreach v,$(lib_vars),$(all_$(v)))
 ALL_DATA   = $(foreach v,$(data_vars),$(all_$(v)))
+ALL_GEN    = $(foreach v,$(gen_vars),$(all_$(v)))
 ALL_TESTS  = $(all_tests)
 
 # Prepend variable $(2)-y to $(1)-(2)-y
@@ -227,7 +228,7 @@ changedir = $(if $(OUTDIR),cd $(OUTDIR))
 stripwd = $(if $(STRIPWD),$(patsubst $(OUTDIR)%,%,$(1)),$(1))
 printcmd = $(if $(Q),@printf "  %-8s%s\n" "$(1)" "$(call stripwd,$(2))")
 
-.PHONY: FORCE all libs progs check clean install install-progs install-libs install-data
+.PHONY: FORCE all libs progs data generated check clean install install-progs install-libs install-data
 
 DEFAULT_DRIVER = "sh -c"
 
@@ -238,7 +239,10 @@ run-test-%:
 # PARTDIR restricts the selected targets to a given directory (partial build)
 libs: $(addprefix $(OUTDIR),$(filter $(PARTDIR)%,$(ALL_LIBS)))
 progs: $(addprefix $(OUTDIR),$(filter $(PARTDIR)%,$(ALL_PROGS)))
-all: libs progs
+data: $(addprefix $(OUTDIR),$(filter $(PARTDIR)%,$(ALL_DATA)))
+generated: $(addprefix $(OUTDIR),$(filter $(PARTDIR)%,$(ALL_GEN)))
+
+all: libs progs data
 #~ check: $(addprefix run-test-,$(call varname,$(ALL_TESTS)))
 check: $(addprefix run-test-,$(call varname,$(filter $(PARTDIR)%,$(ALL_TESTS))))
 
