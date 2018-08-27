@@ -71,9 +71,9 @@ endef
 
 define clearvars
 # clear each $xx-y
-$(foreach v,$(prog_vars) $(lib_vars) $(data_vars) tests clean,$(call clearvar,$(v)))
-$(foreach v,CPPFLAGS CFLAGS CXXFLAGS LDFLAGS,$(call clearvar,$(v)))
-$(foreach v,DEPS LIBS,$(call clearvar,$(v)))
+$(foreach v,$(prog_vars) $(lib_vars) $(data_vars) $(gen_vars),$(call clearvar,$(v)))
+$(foreach v,$(flag_names) $(aflag_names),$(call clearvar,$(v)))
+$(foreach v,tests clean,$(call clearvar,$(v)))
 extra-progs :=
 extra-libs :=
 extra-data :=
