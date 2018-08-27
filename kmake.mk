@@ -24,10 +24,10 @@ AR      ?= ar
 RM      ?= rm -f
 LIBTOOL ?= libtool
 
-LIBTOOL_COMPILE = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=compile --tag CC $(COMPILE)
-LIBTOOL_LINK    = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=link --tag CC $(LINK)
-LIBTOOL_RM      = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=clean --tag CC $(RM)
-LIBTOOL_INSTALL = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=install --tag CC $(INSTALL_PROGRAM)
+LIBTOOL_COMPILE = $(LIBTOOL) $(LIBTOOL_SILENT) --tag CC --mode=compile $(COMPILE)
+LIBTOOL_LINK    = $(LIBTOOL) $(LIBTOOL_SILENT) --tag CC --mode=link $(LINK)
+LIBTOOL_RM      = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=clean $(RM)
+LIBTOOL_INSTALL = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=install $(INSTALL_PROGRAM)
 
 DEFAULT_EXT ?= c
 STRIPWD     ?=
