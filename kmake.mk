@@ -176,10 +176,15 @@ cleanfiles += $(OUTDIR)$(1)
 cleanfiles += $(OUTDIR)$(call getdepfile,$(1))
 cleanfiles += $(OUTDIR)$(call getcmdfile,$(1))
 
+$(OUTDIR)$(1): CMD = $$(COMPILE) $$(ALL_CPPFLAGS) $$(CPPFLAGS) $$(COMPILE_FLAGS)
 $(OUTDIR)$(1): $(SRCDIR)$(2)
 $(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
 
 $(if $(OUTDIR),$(eval $(1): $(OUTDIR)$(1)))
+endef
+
+define rpath_rule
+$(OUTDIR)$(1): RPATH = $(if $(filter %.la,$(1)),-rpath $(2))
 endef
 
 define prog_rule
@@ -191,9 +196,10 @@ $(OUTDIR)$(1): LDFLAGS = $(call getvar,$(1),LDFLAGS)
 $(OUTDIR)$(1): COMPILE_FLAGS = $(if $(call is_cxx,$(1)),$$(ALL_CXXFLAGS) $$(CXXFLAGS),$$(ALL_CFLAGS) $$(CFLAGS))
 $(OUTDIR)$(1): COMPILE = $(call getcc,$(1))
 $(OUTDIR)$(1): LINK = $(call getcc,$(1))
-$(OUTDIR)$(1): CMD = $$(COMPILE) $$(ALL_CPPFLAGS) $$(CPPFLAGS) $$(COMPILE_FLAGS)
+$(OUTDIR)$(1): CMD = $$(COMPILE) $$(RPATH) $$(ALL_LDFLAGS) $$(LDFLAGS) -- $(call getvar,$(1),LIBS)
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(1)),CXX,CC)
 $(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getobj,$(1)))
+$(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
 
 $(if $(OUTDIR),$(eval $(1): $(OUTDIR)$(1)))
 
@@ -219,6 +225,7 @@ endef
 $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
 $(foreach prog,$(ALL_LIBS) $(ALL_PROGS) $(ALL_TESTS),$(eval $(call prog_rule,$(prog))))
 $(foreach test,$(ALL_TESTS),$(eval $(call test_rule,$(test))))
+$(foreach v,$(lib_vars),$(foreach lib,$(all_$(v)),$(eval $(call rpath_rule,$(lib),$($(v)-dir)))))
 
 $(foreach v,$(gen_vars),$(foreach gen,$(all_$(v)),$(eval $(call varname,$(gen))-suffix ?= $($(v)-suffix))))
 $(foreach v,$(gen_vars),$(foreach gen,$(all_$(v)),$(eval $(call $(v)_rule,$(gen)))))
@@ -294,17 +301,17 @@ $(OUTDIR)%.lo:
 $(addprefix $(OUTDIR),$(filter %.la,$(ALL_LIBS))):
 	$(call printcmd,LD,$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(LIBTOOL_LINK)  -rpath $(libdir) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+ $(call getvar,$(@),LIBS)
+	$(Q)$(LIBTOOL_LINK) $(RPATH) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $(filter-out %.cmd,$+) $(call getvar,$(@),LIBS)
 
 $(addprefix $(OUTDIR),$(filter %.a,$(ALL_LIBS))):
 	$(call printcmd,AR,$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(AR) rcs $@ $+
+	$(Q)$(AR) rcs $@ $(filter-out %.cmd,$+)
 
 $(addprefix $(OUTDIR),$(ALL_PROGS) $(ALL_TESTS)):
 	$(call printcmd,LD,$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(LIBTOOL_LINK) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+ $(call getvar,$(@),LIBS)
+	$(Q)$(LIBTOOL_LINK) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $(filter-out %.cmd,$+) $(call getvar,$(@),LIBS)
 
 .SUFFIXES: $(objexts) .mk
 
