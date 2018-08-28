@@ -258,6 +258,8 @@ clean:
 	$(Q)$(LIBTOOL_RM) $(cleanfiles) $(all_clean)
 
 install: install-libs install-progs install-data
+install-strip: LIBTOOL_INSTALL += -s --strip-program=$(STRIP)
+install-strip: install
 
 install-lib-%: FORCE
 	$(if $(filter %.la,$(all_$*)),$(call printcmd,INSTALL,$(filter %.la,$(addprefix $(OUTDIR),$(all_$*)))))
