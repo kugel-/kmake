@@ -18,16 +18,17 @@ LIBTOOL_SILENT := --silent
 endif
 
 # COMPILE and LINK are set in per-target rules
-CC      ?= cc
-CXX     ?= c++
-AR      ?= ar
-RM      ?= rm -f
-LIBTOOL ?= libtool
+CC      ?= $(CROSS_COMPILE)cc
+CXX     ?= $(CROSS_COMPILE)c++
+AR      ?= $(CROSS_COMPILE)ar
+RM      ?= $(CROSS_COMPILE)rm -f
+LIBTOOL ?= $(CROSS_COMPILE)libtool
+STRIP   ?= $(CROSS_COMPILE)strip
 
-LIBTOOL_COMPILE = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=compile --tag CC $(COMPILE)
-LIBTOOL_LINK    = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=link --tag CC $(LINK)
-LIBTOOL_RM      = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=clean --tag CC $(RM)
-LIBTOOL_INSTALL = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=install --tag CC $(INSTALL_PROGRAM)
+LIBTOOL_COMPILE = $(LIBTOOL) $(LIBTOOL_SILENT) --tag CC --mode=compile $(COMPILE)
+LIBTOOL_LINK    = $(LIBTOOL) $(LIBTOOL_SILENT) --tag CC --mode=link $(LINK)
+LIBTOOL_RM      = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=clean $(RM)
+LIBTOOL_INSTALL = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=install $(INSTALL_PROGRAM)
 
 DEFAULT_EXT ?= c
 STRIPWD     ?=
@@ -56,6 +57,11 @@ ifneq ($(PARTDIR),)
 PARTDIR := $(PARTDIR)/
 endif
 
+KMAKEDIR := $(dir $(lastword $(MAKEFILE_LIST)))
+ifeq ($(KMAKEDIR),.)
+KMAKEDIR :=
+endif
+
 empty :=
 space := $(empty) $(empty)
 
@@ -66,9 +72,9 @@ endef
 
 define clearvars
 # clear each $xx-y
-$(foreach v,$(prog_vars) $(lib_vars) $(data_vars) tests clean,$(call clearvar,$(v)))
-$(foreach v,CPPFLAGS CFLAGS CXXFLAGS LDFLAGS,$(call clearvar,$(v)))
-$(foreach v,DEPS LIBS,$(call clearvar,$(v)))
+$(foreach v,$(prog_vars) $(lib_vars) $(data_vars) $(gen_vars),$(call clearvar,$(v)))
+$(foreach v,$(flag_names) $(aflag_names),$(call clearvar,$(v)))
+$(foreach v,tests clean,$(call clearvar,$(v)))
 extra-progs :=
 extra-libs :=
 extra-data :=
@@ -76,16 +82,26 @@ endef
 
 subdir-y    ?= .
 
-prog_vars   := bin sbin
-lib_vars    := libs
-data_vars   := data sysconf
-gen_vars    := $(extra-gen)
+prog_vars     := bin sbin
+prog_vars     += $(extra-progs)
+lib_vars      := libs
+lib_vars      += $(extra-libs)
+data_vars     := data sysconf
+data_vars     += $(extra-data)
+gen_vars      := $(extra-gen)
+flag_names    := CPPFLAGS CFLAGS CXXFLAGS LDFLAGS
+flag_names    += $(extra-flags)
+aflag_names   := DEPS LIBS
+aflag_names   += $(extra-append-flags)
 
-bin-dir     := $(bindir)
-sbin-dir    := $(sbindir)
-libs-dir    := $(libdir)
-data-dir    := $(datadir)
-sysconf-dir := $(sysconfdir)
+bin-dir       := $(bindir)
+bin-suffix    := $(DEFAULT_EXT)
+sbin-dir      := $(sbindir)
+sbin-suffix   := $(DEFAULT_EXT)
+libs-dir      := $(libdir)
+libs-suffix   := $(DEFAULT_EXT)
+data-dir      := $(datadir)
+sysconf-dir   := $(sysconfdir)
 
 #define reset_vars =
 #LOCAL_SRC :=
@@ -102,7 +118,7 @@ ALL_CXXFLAGS ?= -O2 -g
 define inc_subdir
 srcdir := $(filter-out .,$(1))
 objdir := $(OUTDIR)$$(srcdir)
-include $(SRCDIR)process-subdir.mk
+include $(KMAKEDIR)process-subdir.mk
 endef
 
 objexts := .la .a .lo .o
@@ -114,7 +130,7 @@ prefixtarget = $(foreach src,$(1),$(addprefix $(dir $(src))$(2)-,$(basename $(ca
 addpath = $(addprefix $(filter-out ./,$(dir $(1))),$(2))
 getvar = $($(call varname,$(1))$(if $(2),-$(2))-y)
 # call with $(1) = target (incl. extension)
-getdefsrc = $(basename $(call varname,$(1))).$(or $($(call varname,$(1))-suffix),$(DEFAULT_EXT))
+getdefsrc = $(if $($(call varname,$(1))-suffix),$(basename $(call varname,$(1)))$($(call varname,$(1))-suffix))
 # call with $(1) = target (incl. extension)
 getsrc = $(call addpath,$(1),$(or $(filter-out $(objpats),$(call getvar,$(1))),$(call getdefsrc,$(1)))) $(filter-out $(objpats),$(call getvar,$(1),DEPS))
 # call with $(1) = target (incl. extension)
@@ -141,6 +157,7 @@ getdepopt = -MD -MP -MF$(call getdepfile,$(1))
 ALL_PROGS  = $(foreach v,$(prog_vars),$(all_$(v)))
 ALL_LIBS   = $(foreach v,$(lib_vars),$(all_$(v)))
 ALL_DATA   = $(foreach v,$(data_vars),$(all_$(v)))
+ALL_GEN    = $(foreach v,$(gen_vars),$(all_$(v)))
 ALL_TESTS  = $(all_tests)
 
 # Prepend variable $(2)-y to $(1)-(2)-y
@@ -163,10 +180,15 @@ cleanfiles += $(OUTDIR)$(1)
 cleanfiles += $(OUTDIR)$(call getdepfile,$(1))
 cleanfiles += $(OUTDIR)$(call getcmdfile,$(1))
 
+$(OUTDIR)$(1): CMD = $$(COMPILE) $$(ALL_CPPFLAGS) $$(CPPFLAGS) $$(COMPILE_FLAGS)
 $(OUTDIR)$(1): $(SRCDIR)$(2)
 $(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
 
 $(if $(OUTDIR),$(eval $(1): $(OUTDIR)$(1)))
+endef
+
+define rpath_rule
+$(OUTDIR)$(1): RPATH = $(if $(filter %.la,$(1)),-rpath $(2))
 endef
 
 define prog_rule
@@ -178,9 +200,10 @@ $(OUTDIR)$(1): LDFLAGS = $(call getvar,$(1),LDFLAGS)
 $(OUTDIR)$(1): COMPILE_FLAGS = $(if $(call is_cxx,$(1)),$$(ALL_CXXFLAGS) $$(CXXFLAGS),$$(ALL_CFLAGS) $$(CFLAGS))
 $(OUTDIR)$(1): COMPILE = $(call getcc,$(1))
 $(OUTDIR)$(1): LINK = $(call getcc,$(1))
-$(OUTDIR)$(1): CMD = $$(COMPILE) $$(ALL_CPPFLAGS) $$(CPPFLAGS) $$(COMPILE_FLAGS)
+$(OUTDIR)$(1): CMD = $$(COMPILE) $$(RPATH) $$(ALL_LDFLAGS) $$(LDFLAGS) -- $(call getvar,$(1),LIBS)
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(1)),CXX,CC)
 $(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getobj,$(1)))
+$(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
 
 $(if $(OUTDIR),$(eval $(1): $(OUTDIR)$(1)))
 
@@ -195,9 +218,7 @@ run-test-$(call varname,$(1)): FORCE
 endef
 
 define gen_recipe
-$(addprefix $(OUTDIR),$(all_$(1))):
-	$$(call printcmd,$$(PRINTCMD),$$@)
-	$(Q)$($(1)_recipe)
+$(call $(1)_recipe,$(all_$(1)))
 
 ifneq ($(OUTDIR),)
 vpath $(all_$(1)) $(OUTDIR)
@@ -208,6 +229,7 @@ endef
 $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
 $(foreach prog,$(ALL_LIBS) $(ALL_PROGS) $(ALL_TESTS),$(eval $(call prog_rule,$(prog))))
 $(foreach test,$(ALL_TESTS),$(eval $(call test_rule,$(test))))
+$(foreach v,$(lib_vars),$(foreach lib,$(all_$(v)),$(eval $(call rpath_rule,$(lib),$($(v)-dir)))))
 
 $(foreach v,$(gen_vars),$(foreach gen,$(all_$(v)),$(eval $(call varname,$(gen))-suffix ?= $($(v)-suffix))))
 $(foreach v,$(gen_vars),$(foreach gen,$(all_$(v)),$(eval $(call $(v)_rule,$(gen)))))
@@ -217,7 +239,7 @@ changedir = $(if $(OUTDIR),cd $(OUTDIR))
 stripwd = $(if $(STRIPWD),$(patsubst $(OUTDIR)%,%,$(1)),$(1))
 printcmd = $(if $(Q),@printf "  %-8s%s\n" "$(1)" "$(call stripwd,$(2))")
 
-.PHONY: FORCE all libs progs check clean install install-progs install-libs install-data
+.PHONY: FORCE all libs progs data generated check clean install install-progs install-libs install-data
 
 DEFAULT_DRIVER = "sh -c"
 
@@ -228,7 +250,10 @@ run-test-%:
 # PARTDIR restricts the selected targets to a given directory (partial build)
 libs: $(addprefix $(OUTDIR),$(filter $(PARTDIR)%,$(ALL_LIBS)))
 progs: $(addprefix $(OUTDIR),$(filter $(PARTDIR)%,$(ALL_PROGS)))
-all: libs progs
+data: $(addprefix $(OUTDIR),$(filter $(PARTDIR)%,$(ALL_DATA)))
+generated: $(addprefix $(OUTDIR),$(filter $(PARTDIR)%,$(ALL_GEN)))
+
+all: libs progs data
 #~ check: $(addprefix run-test-,$(call varname,$(ALL_TESTS)))
 check: $(addprefix run-test-,$(call varname,$(filter $(PARTDIR)%,$(ALL_TESTS))))
 
@@ -237,6 +262,8 @@ clean:
 	$(Q)$(LIBTOOL_RM) $(cleanfiles) $(all_clean)
 
 install: install-libs install-progs install-data
+install-strip: LIBTOOL_INSTALL += -s --strip-program=$(STRIP)
+install-strip: install
 
 install-lib-%: FORCE
 	$(if $(filter %.la,$(all_$*)),$(call printcmd,INSTALL,$(filter %.la,$(addprefix $(OUTDIR),$(all_$*)))))
@@ -255,7 +282,7 @@ install-progs: $(addprefix install-prog-,$(prog_vars))
 install-data-%: FORCE
 	$(if $(all_$*),$(call printcmd,INSTALL,$(addprefix $(SRCDIR),$(all_$*))))
 	$(AT)mkdir -p $(DESTDIR)$($*-dir)
-	$(if $(all_$*),$$(Q)$(INSTALL_PROGRAM) -D -t $(DESTDIR)$($*-dir) $(addprefix $(SRCDIR),$(all_$*)))
+	$(if $(all_$*),$(Q)$(INSTALL_PROGRAM) -D -t $(DESTDIR)$($*-dir) $(addprefix $(SRCDIR),$(all_$*)))
 
 install-data: $(addprefix install-data-,$(data_vars))
 
@@ -280,18 +307,18 @@ $(OUTDIR)%.lo:
 $(addprefix $(OUTDIR),$(filter %.la,$(ALL_LIBS))):
 	$(call printcmd,LD,$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(LIBTOOL_LINK)  -rpath $(libdir) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+ $(call getvar,$(@),LIBS)
+	$(Q)$(LIBTOOL_LINK) $(RPATH) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $(filter-out %.cmd,$+) $(call getvar,$(@),LIBS)
 
 $(addprefix $(OUTDIR),$(filter %.a,$(ALL_LIBS))):
 	$(call printcmd,AR,$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(AR) rcs $@ $+
+	$(Q)$(AR) rcs $@ $(filter-out %.cmd,$+)
 
 $(addprefix $(OUTDIR),$(ALL_PROGS) $(ALL_TESTS)):
 	$(call printcmd,LD,$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(LIBTOOL_LINK) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $+ $(call getvar,$(@),LIBS)
+	$(Q)$(LIBTOOL_LINK) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $(filter-out %.cmd,$+) $(call getvar,$(@),LIBS)
 
-.SUFFIXES: $(objexts)
+.SUFFIXES: $(objexts) .mk
 
 -include $(filter %.d,$(cleanfiles))
