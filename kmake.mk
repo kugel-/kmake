@@ -18,9 +18,9 @@ LIBTOOL_SILENT := --silent
 endif
 
 # COMPILE and LINK are set in per-target rules
-CC      ?= cc
-CXX     ?= c++
-AR      ?= ar
+CC      ?= $(CROSS_COMPILE)cc
+CXX     ?= $(CROSS_COMPILE)c++
+AR      ?= $(CROSS_COMPILE)ar
 RM      ?= rm -f
 LIBTOOL ?= libtool
 
