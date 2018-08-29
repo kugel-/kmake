@@ -29,7 +29,7 @@ LIBTOOL_LINK    = $(LIBTOOL) $(LIBTOOL_SILENT) --tag CC --mode=link $(LINK)
 LIBTOOL_RM      = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=clean $(RM)
 LIBTOOL_INSTALL = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=install $(INSTALL_PROGRAM)
 
-DEFAULT_EXT ?= c
+DEFAULT_SUFFIX ?= .c
 STRIPWD     ?=
 
 ifneq ($(S),)
@@ -94,10 +94,14 @@ aflag_names   := DEPS LIBS
 aflag_names   += $(extra-append-flags)
 
 bin-dir       := $(bindir)
+bin-suffix    := $(DEFAULT_SUFFIX)
 sbin-dir      := $(sbindir)
+sbin-suffix   := $(DEFAULT_SUFFIX)
 libs-dir      := $(libdir)
+libs-suffix   := $(DEFAULT_SUFFIX)
 data-dir      := $(datadir)
 sysconf-dir   := $(sysconfdir)
+tests-suffix  := $(DEFAULT_SUFFIX)
 
 #define reset_vars =
 #LOCAL_SRC :=
@@ -126,7 +130,7 @@ prefixtarget = $(foreach src,$(1),$(addprefix $(dir $(src))$(2)-,$(basename $(ca
 addpath = $(addprefix $(filter-out ./,$(dir $(1))),$(2))
 getvar = $($(call varname,$(1))$(if $(2),-$(2))-y)
 # call with $(1) = target (incl. extension)
-getdefsrc = $(basename $(call varname,$(1))).$(or $($(call varname,$(1))-suffix),$(DEFAULT_EXT))
+getdefsrc = $(if $($(call varname,$(1))-suffix),$(basename $(call varname,$(1)))$($(call varname,$(1))-suffix))
 # call with $(1) = target (incl. extension)
 getsrc = $(call addpath,$(1),$(or $(filter-out $(objpats),$(call getvar,$(1))),$(call getdefsrc,$(1)))) $(filter-out $(objpats),$(call getvar,$(1),DEPS))
 # call with $(1) = target (incl. extension)
@@ -227,7 +231,6 @@ $(foreach prog,$(ALL_LIBS) $(ALL_PROGS) $(ALL_TESTS),$(eval $(call prog_rule,$(p
 $(foreach test,$(ALL_TESTS),$(eval $(call test_rule,$(test))))
 $(foreach v,$(lib_vars),$(foreach lib,$(all_$(v)),$(eval $(call rpath_rule,$(lib),$($(v)-dir)))))
 
-$(foreach v,$(gen_vars),$(foreach gen,$(all_$(v)),$(eval $(call varname,$(gen))-suffix ?= $($(v)-suffix))))
 $(foreach v,$(gen_vars),$(foreach gen,$(all_$(v)),$(eval $(call $(v)_rule,$(gen)))))
 $(foreach v,$(gen_vars),$(eval $(if $(all_$(v)),$(call gen_recipe,$(v)))))
 

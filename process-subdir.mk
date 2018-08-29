@@ -15,9 +15,16 @@ flag_names  := $(sort $(flag_names) $(extra-flags))
 aflag_names := $(sort $(aflag_names) $(extra-append-flags))
 
 # There is only a single tests variable, and the programs need not be installed
-$(foreach v,$(prog_vars) $(lib_vars) $(data_vars) $(gen_vars) tests,$(if $($(v)-y),$(eval all_$(v) += $(addprefix $(srcdir),$($(v)-y)))))
-$(foreach v,clean,$(if $($(v)-y),$(eval all_$(v) += $($(v)-y))))
-$(foreach v,$(prog_vars) $(lib_vars) $(data_vars),$(if $($(v)-dir),,$(error Must specify $(v)-dir in $(srcdir)subdir.mk)))
+$(foreach v,$(prog_vars) $(lib_vars) $(data_vars) $(gen_vars) tests clean,\
+	$(if $($(v)-y),$(eval all_$(v) += $(addprefix $(srcdir),$($(v)-y)))))
+$(foreach v,$(prog_vars) $(lib_vars) $(data_vars),\
+	$(if $($(v)-dir),,$(error Must specify $(v)-dir in $(srcdir)subdir.mk)))
+
+# inherit $t-dir and $t-suffix from vars unless explicitly set
+$(foreach v,$(prog_vars) $(lib_vars) $(data_vars) $(gen_vars) tests,\
+	$(foreach t,$($(v)-y),$(eval $(t)-suffix ?= $($(v)-suffix))))
+$(foreach v,$(prog_vars) $(lib_vars) $(data_vars) $(gen_vars) tests,\
+	$(foreach t,$($(v)-y),$(eval $(t)-dir ?= $($(v)-dir))))
 
 # prepends CFLAGS-y to $(bin)-CFLAGS-y (and friends)
 $(foreach flag,$(flag_names),\

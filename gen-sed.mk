@@ -11,11 +11,11 @@ $(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
 endef
 
 define sed_recipe
-%.c: %.c.sed
+$(1):
 	$$(call printcmd,GEN,$$@)
 	$$(Q)sed -e $$(SED_SCRIPT) $$< >$$@.tmp && mv $$@.tmp $$@
 endef
 
-sed-suffix := c.sed
+sed-suffix := .c.sed
 
-.SUFFIXES: c.sed
+.SUFFIXES: $(sed-suffix)
