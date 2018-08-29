@@ -184,7 +184,7 @@ $(OUTDIR)$(1): CMD = $$(COMPILE) $$(ALL_CPPFLAGS) $$(CPPFLAGS) $$(COMPILE_FLAGS)
 $(OUTDIR)$(1): $(SRCDIR)$(2)
 $(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
 
-$(if $(OUTDIR),$(eval $(1): $(OUTDIR)$(1)))
+$(if $(OUTDIR),$(eval vpath $(1) $(OUTDIR)))
 endef
 
 define rpath_rule
@@ -205,7 +205,7 @@ $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(1)),CXX,CC)
 $(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getobj,$(1)))
 $(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
 
-$(if $(OUTDIR),$(eval $(1): $(OUTDIR)$(1)))
+$(if $(OUTDIR),$(eval vpath $(1) $(OUTDIR)))
 
 $(call varname,$(1))-obj += $(call getobj,$(1))
 
@@ -220,10 +220,7 @@ endef
 define gen_recipe
 $(call $(1)_recipe,$(all_$(1)))
 
-ifneq ($(OUTDIR),)
-vpath $(all_$(1)) $(OUTDIR)
-endif
-
+$(if $(OUTDIR),$(eval vpath $(all_$(1)) $(OUTDIR)))
 endef
 
 $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
@@ -247,10 +244,10 @@ run-test-%:
 	if [ $$?=0 ] ; then echo PASS: $<; else echo FAIL: $<; fi
 
 # PARTDIR restricts the selected targets to a given directory (partial build)
-libs: $(addprefix $(OUTDIR),$(filter $(PARTDIR)%,$(ALL_LIBS)))
-progs: $(addprefix $(OUTDIR),$(filter $(PARTDIR)%,$(ALL_PROGS)))
-data: $(addprefix $(OUTDIR),$(filter $(PARTDIR)%,$(ALL_DATA)))
-generated: $(addprefix $(OUTDIR),$(filter $(PARTDIR)%,$(ALL_GEN)))
+libs: $(filter $(PARTDIR)%,$(ALL_LIBS))
+progs: $(filter $(PARTDIR)%,$(ALL_PROGS))
+data: $(filter $(PARTDIR)%,$(ALL_DATA))
+generated: $(filter $(PARTDIR)%,$(ALL_GEN))
 
 all: libs progs data
 #~ check: $(addprefix run-test-,$(call varname,$(ALL_TESTS)))
