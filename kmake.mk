@@ -257,8 +257,8 @@ all: libs progs data
 check: $(addprefix run-test-,$(call varname,$(filter $(PARTDIR)%,$(ALL_TESTS))))
 
 clean:
-	$(call printcmd,RM,$(cleanfiles) $(all_clean))
-	$(Q)$(LIBTOOL_RM) $(cleanfiles) $(all_clean)
+	$(call printcmd,RM,$(cleanfiles) $(addprefix $(OUTDIR),$(all_clean)))
+	$(Q)$(LIBTOOL_RM) $(cleanfiles) $(addprefix $(OUTDIR),$(all_clean))
 
 install: install-libs install-progs install-data
 install-strip: LIBTOOL_INSTALL += -s --strip-program=$(STRIP)
