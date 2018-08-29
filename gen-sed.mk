@@ -13,7 +13,7 @@ endef
 define sed_recipe
 $(1):
 	$$(call printcmd,GEN,$$@)
-	$$(Q)sed -e $$(SED_SCRIPT) $$< >$$@.tmp && mv $$@.tmp $$@
+	$$(Q)sed $$(addprefix --expression=,$$(SED_SCRIPT)) $$< >$$@.tmp && mv $$@.tmp $$@
 endef
 
 sed-suffix := .c.sed
