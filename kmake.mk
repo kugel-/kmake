@@ -127,7 +127,8 @@ objpats := $(addprefix %,$(objexts))
 varname = $(foreach x,$(1),$(notdir $(x)))
 prefixtarget = $(foreach src,$(1),$(addprefix $(dir $(src))$(2)-,$(basename $(call varname,$(src)))))
 
-addpath = $(addprefix $(filter-out ./,$(dir $(1))),$(2))
+# prepend $(dir $(1)) to $(2), except if it's './' or $(2) is an absolute path
+addpath = $(patsubst $(dir $(1))/%,/%,$(addprefix $(filter-out ./,$(dir $(1))),$(2)))
 getvar = $($(call varname,$(1))$(if $(2),-$(2))-y)
 # call with $(1) = target (incl. extension)
 getdefsrc = $(if $($(call varname,$(1))-suffix),$(basename $(call varname,$(1)))$($(call varname,$(1))-suffix))
