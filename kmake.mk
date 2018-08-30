@@ -103,17 +103,9 @@ data-dir      := $(datadir)
 sysconf-dir   := $(sysconfdir)
 tests-suffix  := $(DEFAULT_SUFFIX)
 
-#define reset_vars =
-#LOCAL_SRC :=
-#LOCAL_CFLAGS :=
-#LOCAL_LDFLAGS :=
-#LOCAL_LDLIBS :=
-#endef                  g
-
-ALL_CPPFLAGS ?= -I. $(if $(SRCDIR),-I$(SRCDIR))
-ALL_CFLAGS   ?= -O2 -g
-ALL_CXXFLAGS ?= -O2 -g
-
+KM_CPPFLAGS ?= -I. $(if $(SRCDIR),-I$(SRCDIR))
+KM_CFLAGS   ?= -O2 -g
+KM_CXXFLAGS ?= -O2 -g
 
 define inc_subdir
 srcdir := $(filter-out .,$(1))
@@ -181,7 +173,7 @@ cleanfiles += $(OUTDIR)$(1)
 cleanfiles += $(OUTDIR)$(call getdepfile,$(1))
 cleanfiles += $(OUTDIR)$(call getcmdfile,$(1))
 
-$(OUTDIR)$(1): CMD = $$(COMPILE) $$(ALL_CPPFLAGS) $$(CPPFLAGS) $$(COMPILE_FLAGS)
+$(OUTDIR)$(1): CMD = $$(COMPILE) $$(KM_CPPFLAGS) $$(CPPFLAGS) $$(COMPILE_FLAGS)
 $(OUTDIR)$(1): $(SRCDIR)$(2)
 $(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
 
@@ -194,14 +186,14 @@ endef
 
 define prog_rule
 cleanfiles += $(OUTDIR)$(1)
-$(OUTDIR)$(1): CPPFLAGS = $(call getvar,$(1),CPPFLAGS)
-$(OUTDIR)$(1): CFLAGS = $(call getvar,$(1),CFLAGS)
-$(OUTDIR)$(1): CXXFLAGS = $(call getvar,$(1),CXXFLAGS)
-$(OUTDIR)$(1): LDFLAGS = $(call getvar,$(1),LDFLAGS)
-$(OUTDIR)$(1): COMPILE_FLAGS = $(if $(call is_cxx,$(1)),$$(ALL_CXXFLAGS) $$(CXXFLAGS),$$(ALL_CFLAGS) $$(CFLAGS))
+$(OUTDIR)$(1): KM_CPPFLAGS += $(call getvar,$(1),CPPFLAGS)
+$(OUTDIR)$(1): KM_CFLAGS += $(call getvar,$(1),CFLAGS)
+$(OUTDIR)$(1): KM_CXXFLAGS += $(call getvar,$(1),CXXFLAGS)
+$(OUTDIR)$(1): KM_LDFLAGS += $(call getvar,$(1),LDFLAGS)
+$(OUTDIR)$(1): COMPILE_FLAGS = $(if $(call is_cxx,$(1)),$$(KM_CXXFLAGS) $$(CXXFLAGS),$$(KM_CFLAGS) $(CFLAGS))
 $(OUTDIR)$(1): COMPILE = $(call getcc,$(1))
 $(OUTDIR)$(1): LINK = $(call getcc,$(1))
-$(OUTDIR)$(1): CMD = $$(COMPILE) $$(RPATH) $$(ALL_LDFLAGS) $$(LDFLAGS) -- $(call getvar,$(1),LIBS)
+$(OUTDIR)$(1): CMD = $$(COMPILE) $$(RPATH) $$(KM_LDFLAGS) $$(LDFLAGS) -- $(call getvar,$(1),LIBS)
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(1)),CXX,CC)
 $(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getobj,$(1)))
 $(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
@@ -294,17 +286,17 @@ $(OUTDIR)%.cmd: FORCE
 $(OUTDIR)%.o:
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)/.deps
-	$(Q)$(COMPILE) $(call getdepopt,$@) $(ALL_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS) -c -o $@ $<
+	$(Q)$(COMPILE) $(call getdepopt,$@) $(KM_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS) -c -o $@ $<
 
 $(OUTDIR)%.lo:
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)/.deps
-	$(Q)$(LIBTOOL_COMPILE) $(call getdepopt,$@) $(ALL_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS) -c -o $@ $<
+	$(Q)$(LIBTOOL_COMPILE) $(call getdepopt,$@) $(KM_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS) -c -o $@ $<
 
 $(addprefix $(OUTDIR),$(filter %.la,$(ALL_LIBS))):
 	$(call printcmd,LD,$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(LIBTOOL_LINK) $(RPATH) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $(filter-out %.cmd,$+) $(call getvar,$(@),LIBS)
+	$(Q)$(LIBTOOL_LINK) $(RPATH) $(KM_LDFLAGS) $(LDFLAGS) -o $@ $(filter-out %.cmd,$+) $(call getvar,$(@),LIBS)
 
 $(addprefix $(OUTDIR),$(filter %.a,$(ALL_LIBS))):
 	$(call printcmd,AR,$@)
@@ -314,7 +306,7 @@ $(addprefix $(OUTDIR),$(filter %.a,$(ALL_LIBS))):
 $(addprefix $(OUTDIR),$(ALL_PROGS) $(ALL_TESTS)):
 	$(call printcmd,LD,$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(LIBTOOL_LINK) $(ALL_LDFLAGS) $(LDFLAGS) -o $@ $(filter-out %.cmd,$+) $(call getvar,$(@),LIBS)
+	$(Q)$(LIBTOOL_LINK) $(KM_LDFLAGS) $(LDFLAGS) -o $@ $(filter-out %.cmd,$+) $(call getvar,$(@),LIBS)
 
 .SUFFIXES: $(objexts) .mk
 
