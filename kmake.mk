@@ -223,8 +223,12 @@ run-test-$(call varname,$(1)): $(1)
 run-test-$(call varname,$(1)): FORCE
 endef
 
-define gen_recipe
+define gen_rule
+cleanfiles += $(addprefix $(OUTDIR),$(all_$(1)))
+
 $(call $(1)_recipe,$(all_$(1)))
+
+$(foreach f,$(all_$(1)),$(call $(1)_rule,$(f)))
 
 $(if $(OUTDIR),$(eval vpath $(all_$(1)) $(OUTDIR)))
 endef
@@ -232,10 +236,8 @@ endef
 $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
 $(foreach prog,$(ALL_LIBS) $(ALL_PROGS) $(ALL_TESTS),$(eval $(call prog_rule,$(prog))))
 $(foreach test,$(ALL_TESTS),$(eval $(call test_rule,$(test))))
+$(foreach v,$(gen_vars),$(eval $(call gen_rule,$(v))))
 $(foreach v,$(lib_vars),$(foreach lib,$(all_$(v)),$(eval $(call rpath_rule,$(lib),$($(v)-dir)))))
-
-$(foreach v,$(gen_vars),$(foreach gen,$(all_$(v)),$(eval $(call $(v)_rule,$(gen)))))
-$(foreach v,$(gen_vars),$(eval $(if $(all_$(v)),$(call gen_recipe,$(v)))))
 
 changedir = $(if $(OUTDIR),cd $(OUTDIR))
 stripwd = $(if $(STRIPWD),$(patsubst $(OUTDIR)%,%,$(1)),$(1))
