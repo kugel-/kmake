@@ -31,6 +31,8 @@ LIBTOOL_RM      = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=clean $(RM)
 LIBTOOL_INSTALL = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=install $(INSTALL_PROGRAM)
 
 DEFAULT_SUFFIX ?= .c
+DEFAULT_DRIVER ?= "sh -c"
+
 STRIPWD     ?=
 
 ifneq ($(S),)
@@ -72,9 +74,9 @@ endef
 
 define clearvars
 # clear each $xx-y
-$(foreach v,$(prog_vars) $(lib_vars) $(data_vars) $(gen_vars),$(call clearvar,$(v)))
+$(foreach v,$(prog_vars) $(lib_vars) $(data_vars),$(call clearvar,$(v)))
+$(foreach v,$(test_vars) $(gen_vars) clean,$(call clearvar,$(v)))
 $(foreach v,$(flag_names) $(aflag_names),$(call clearvar,$(v)))
-$(foreach v,tests clean,$(call clearvar,$(v)))
 extra-progs :=
 extra-libs :=
 extra-data :=
@@ -88,6 +90,8 @@ lib_vars      := libs
 lib_vars      += $(extra-libs)
 data_vars     := data sysconf
 data_vars     += $(extra-data)
+test_vars     := tests testscripts
+test_vars     += $(extra-tests)
 gen_vars      := $(extra-gen)
 flag_names    := CPPFLAGS CFLAGS CXXFLAGS LDFLAGS
 flag_names    += $(extra-flags)
@@ -103,6 +107,8 @@ libs-suffix   := $(DEFAULT_SUFFIX)
 data-dir      := $(datadir)
 sysconf-dir   := $(sysconfdir)
 tests-suffix  := $(DEFAULT_SUFFIX)
+tests-driver  := $(DEFAULT_DRIVER)
+testscripts-driver  := $(DEFAULT_DRIVER)
 
 KM_CPPFLAGS ?= -I. $(if $(SRCDIR),-I$(SRCDIR))
 KM_CFLAGS   ?= -O2 -g
@@ -126,7 +132,7 @@ getvar = $($(call varname,$(1))$(if $(2),-$(2))-y)
 # call with $(1) = target (incl. extension)
 getdefsrc = $(if $($(call varname,$(1))-suffix),$(basename $(call varname,$(1)))$($(call varname,$(1))-suffix))
 # call with $(1) = target (incl. extension)
-getsrc = $(call addpath,$(1),$(or $(filter-out $(objpats),$(call getvar,$(1))),$(call getdefsrc,$(1)))) $(filter-out $(objpats),$(call getvar,$(1),DEPS))
+getsrc = $(strip $(call addpath,$(1),$(or $(filter-out $(objpats),$(call getvar,$(1))),$(call getdefsrc,$(1)))) $(filter-out $(objpats),$(call getvar,$(1),DEPS)))
 # call with $(1) = target (incl. extension)
 getnsrc = $(call addpath,$(1),$(filter $(objpats),$(call getvar,$(1)))) $(filter $(objpats),$(call getvar,$(1),DEPS))
 # call with $(1) = target (incl. extension)
@@ -136,14 +142,18 @@ getobjbase = $(call prefixtarget,$(1),$(2))
 # call with $(1) = src file, $(2) = target (incl. extension)
 getobjfile = $(call getobjbase,$(1),$(call varname,$(2))).$(call getobjext,$(2))
 # call with $(1) = target (incl. extension)
-getobj = $(foreach src,$(call getsrc,$(1)),$(call getobjfile,$(src),$(1))) $(call getnsrc,$(1))
+# Note this is returns empty if the target has no source files, since it is
+# assumed the target already exists (allows to place scripts in $foo-y)
+getobj = $(strip $(foreach src,$(call getsrc,$(1)),$(call getobjfile,$(src),$(1))) $(call getnsrc,$(1)))
 # call with $(1) = target (incl. extension)
 # use libtool if building a shared library
 is_cxx = $(filter %.cpp,$(call getsrc,$(1)))
 getcc = $(if $(call is_cxx,$(1)),$(CXX),$(CC))
-# call with $(1) = obj file
+# call with $(1) = target (incl. extension)
 getdepsdir = $(dir $(1)).deps/
-# call with $(1) = obj file
+# call with $(1) = target (incl. extension)
+# Note this is returns empty if the target has no source files, since it is
+# assumed the target already exists (allows to place scripts in $foo-y)
 getcmdfile = $(call getdepsdir,$(1))$(notdir $(1)).cmd
 getdepfile = $(call getdepsdir,$(1))$(notdir $(1)).dep
 getdepopt = -MD -MP -MF$(call getdepfile,$(1))
@@ -152,7 +162,7 @@ ALL_PROGS  = $(foreach v,$(prog_vars),$(all_$(v)))
 ALL_LIBS   = $(foreach v,$(lib_vars),$(all_$(v)))
 ALL_DATA   = $(foreach v,$(data_vars),$(all_$(v)))
 ALL_GEN    = $(foreach v,$(gen_vars),$(all_$(v)))
-ALL_TESTS  = $(all_tests)
+ALL_TESTS  = $(foreach v,$(test_vars),$(all_$(v)))
 
 # Prepend variable $(2)-y to $(1)-(2)-y
 # e.g. prepend CFLAGS-y to libfoo-CFLAGS-y
@@ -186,7 +196,9 @@ $(OUTDIR)$(1): RPATH = $(if $(filter %.la,$(1)),-rpath $(2))
 endef
 
 define prog_rule
-cleanfiles += $(OUTDIR)$(1)
+# if a target has no objects, it is assumed to be a script that does
+# not need to be built (as it cannot be built anyway)
+cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(1))
 $(OUTDIR)$(1): KM_CPPFLAGS += $(call getvar,$(1),CPPFLAGS)
 $(OUTDIR)$(1): KM_CFLAGS += $(call getvar,$(1),CFLAGS)
 $(OUTDIR)$(1): KM_CXXFLAGS += $(call getvar,$(1),CXXFLAGS)
@@ -197,7 +209,7 @@ $(OUTDIR)$(1): LINK = $(call getcc,$(1))
 $(OUTDIR)$(1): CMD = $$(COMPILE) $$(RPATH) $$(KM_LDFLAGS) $$(LDFLAGS) -- $(call getvar,$(1),LIBS)
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(1)),CXX,CC)
 $(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getobj,$(1)))
-$(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
+$(OUTDIR)$(1): $(if $(call getobj,$(1)),$(OUTDIR)$(call getcmdfile,$(1)))
 
 $(if $(OUTDIR),$(eval vpath $(1) $(OUTDIR)))
 
@@ -207,7 +219,7 @@ $(foreach f,$(call getsrc,$(1)),$(eval $(call obj_rule,$(call getobjfile,$(f),$(
 endef
 
 define test_rule
-run-test-$(call varname,$(1)): $(OUTDIR)$(1)
+run-test-$(call varname,$(1)): $(1)
 run-test-$(call varname,$(1)): FORCE
 endef
 
@@ -232,11 +244,9 @@ printcmd = $(if $(Q),@printf "  %-8s%s\n" "$(1)" "$(call stripwd,$(2))")
 .PHONY: FORCE all libs progs data generated check clean
 .PHONY: install install-progs install-libs install-data install-strip
 
-DEFAULT_DRIVER = "sh -c"
-
 run-test-%:
-	$(Q)driver=$(or $(call getvar,$*,DRIVER),$(DEFAULT_DRIVER)); $$driver $<; \
-	if [ $$?=0 ] ; then echo PASS: $<; else echo FAIL: $<; fi
+	$(Q)driver=$($(call varname,$*)-driver); $$driver $(KM_CHECKFLAGS) $<; \
+	if [ $$? = 0 ]; then echo PASS: $<; else echo FAIL: $<; fi
 
 # PARTDIR restricts the selected targets to a given directory (partial build)
 libs: $(filter $(PARTDIR)%,$(ALL_LIBS))
