@@ -21,6 +21,7 @@ endif
 CC      ?= $(CROSS_COMPILE)cc
 CXX     ?= $(CROSS_COMPILE)c++
 AR      ?= $(CROSS_COMPILE)ar
+STRIP   ?= $(CROSS_COMPILE)strip
 RM      ?= rm -f
 LIBTOOL ?= libtool
 
@@ -228,7 +229,8 @@ changedir = $(if $(OUTDIR),cd $(OUTDIR))
 stripwd = $(if $(STRIPWD),$(patsubst $(OUTDIR)%,%,$(1)),$(1))
 printcmd = $(if $(Q),@printf "  %-8s%s\n" "$(1)" "$(call stripwd,$(2))")
 
-.PHONY: FORCE all libs progs data generated check clean install install-progs install-libs install-data
+.PHONY: FORCE all libs progs data generated check clean
+.PHONY: install install-progs install-libs install-data install-strip
 
 DEFAULT_DRIVER = "sh -c"
 
@@ -251,14 +253,16 @@ clean:
 	$(Q)$(LIBTOOL_RM) $(cleanfiles) $(addprefix $(OUTDIR),$(all_clean))
 
 install: install-libs install-progs install-data
-install-strip: LIBTOOL_INSTALL += -s --strip-program=$(STRIP)
+install-strip: LIBTOOL_INSTALL += $(STRIPOPT)
 install-strip: install
 
 install-lib-%: FORCE
-	$(if $(filter %.la,$(all_$*)),$(call printcmd,INSTALL,$(filter %.la,$(addprefix $(OUTDIR),$(all_$*)))))
+	$(eval LA_LIBS := $(filter %.la,$(addprefix $(OUTDIR),$(all_$*))))
+	$(if $(LA_LIBS),$(call printcmd,INSTALL,$(LA_LIBS)))
 	$(AT)mkdir -p $(DESTDIR)$($*-dir)
-	$(Q)$(if $(filter %.la,$(all_$*)),$(LIBTOOL_INSTALL) $(filter %.la,$(addprefix $(OUTDIR),$(all_$*))) $(DESTDIR)$($*-dir))
+	$(Q)$(if $(LA_LIBS),$(LIBTOOL_INSTALL) $(LA_LIBS) $(DESTDIR)$($*-dir))
 
+install-libs: STRIPOPT = -s
 install-libs: $(addprefix install-lib-,$(lib_vars))
 
 install-prog-%: FORCE
@@ -266,6 +270,7 @@ install-prog-%: FORCE
 	$(AT)mkdir -p $(DESTDIR)$($*-dir)
 	$(if $(all_$*),$(Q)$(LIBTOOL_INSTALL) $(addprefix $(OUTDIR),$(all_$*)) $(DESTDIR)$($*-dir))
 
+install-progs: STRIPOPT = -s --strip-program=$(STRIP)
 install-progs: $(addprefix install-prog-,$(prog_vars))
 
 install-data-%: FORCE
