@@ -285,7 +285,7 @@ install-strip: install
 install install-strip:
 	$(Q)$(if $(all_submake),$(MAKE) submakes-$@)
 
-install-lib-%: FORCE
+$(addprefix install-lib-,$(lib_vars)): install-lib-%: FORCE
 	$(eval LA_LIBS := $(filter %.la,$(addprefix $(OUTDIR),$(all_$*))))
 	$(if $(LA_LIBS),$(call printcmd,INSTALL,$(LA_LIBS)))
 	$(AT)mkdir -p $(DESTDIR)$($*-dir)
@@ -294,7 +294,7 @@ install-lib-%: FORCE
 install-libs: STRIPOPT = -s
 install-libs: $(addprefix install-lib-,$(lib_vars))
 
-install-prog-%: FORCE
+$(addprefix install-prog-,$(prog_vars)): install-prog-%: FORCE
 	$(if $(all_$*),$(call printcmd,INSTALL,$(addprefix $(OUTDIR),$(all_$*))))
 	$(AT)mkdir -p $(DESTDIR)$($*-dir)
 	$(if $(all_$*),$(Q)$(LIBTOOL_INSTALL) $(addprefix $(OUTDIR),$(all_$*)) $(DESTDIR)$($*-dir))
@@ -302,7 +302,7 @@ install-prog-%: FORCE
 install-progs: STRIPOPT = -s --strip-program=$(STRIP)
 install-progs: $(addprefix install-prog-,$(prog_vars))
 
-install-data-%: FORCE
+$(addprefix install-data-,$(data_vars)): install-data-%: FORCE
 	$(if $(all_$*),$(call printcmd,INSTALL,$(addprefix $(SRCDIR),$(all_$*))))
 	$(AT)mkdir -p $(DESTDIR)$($*-dir)
 	$(if $(all_$*),$(Q)$(INSTALL_PROGRAM) -D -t $(DESTDIR)$($*-dir) $(addprefix $(SRCDIR),$(all_$*)))
