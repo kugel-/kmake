@@ -319,12 +319,16 @@ $(OUTDIR)%.cmd: FORCE
 	if [ -f "$@" ]; then old=$$(cut -c-32 $@); test "$$old" = "$$new" && uptodate=y ; fi ;\
 	test -n "$$uptodate" || echo "$$new" - "$$cmd" >$@)
 
-$(OUTDIR)%.o:
+# prevent %.o to become a fallback rule for any file
+all_obj = $(filter %.o,$(cleanfiles))
+$(all_obj): $(OUTDIR)%.o:
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)/.deps
 	$(Q)$(COMPILE) $(call getdepopt,$@) $(KM_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS) -c -o $@ $<
 
-$(OUTDIR)%.lo:
+# prevent %.lo to become a fallback rule for any file
+all_lobj = $(filter %.lo,$(cleanfiles))
+$(all_lobj): $(OUTDIR)%.lo:
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)/.deps
 	$(Q)$(LIBTOOL_COMPILE) $(call getdepopt,$@) $(KM_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS) -c -o $@ $<
