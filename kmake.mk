@@ -178,12 +178,18 @@ $(1)-$(2)-y := $(call getvar,$(1),$(2)) $(call getvar,$(2))
 endef
 append_flags = $(eval $(call _append_flags,$(call varname,$(1)),$(2)))
 
-# Call with $1: object file, $2: src file
+# Call with $1: object file, $2: src file, $3: target that $1 is part of
 define obj_rule
 cleanfiles += $(OUTDIR)$(1)
 cleanfiles += $(OUTDIR)$(call getdepfile,$(1))
 cleanfiles += $(OUTDIR)$(call getcmdfile,$(1))
 
+$(OUTDIR)$(1): KM_CPPFLAGS += $(call getvar,$(3),CPPFLAGS)
+$(OUTDIR)$(1): KM_CFLAGS += $(call getvar,$(3),CFLAGS)
+$(OUTDIR)$(1): KM_CXXFLAGS += $(call getvar,$(3),CXXFLAGS)
+$(OUTDIR)$(1): COMPILE_FLAGS = $(if $(call is_cxx,$(3)),$$(KM_CXXFLAGS) $$(CXXFLAGS),$$(KM_CFLAGS) $(CFLAGS))
+$(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(3)),CXX,CC)
+$(OUTDIR)$(1): COMPILE = $(call getcc,$(3))
 $(OUTDIR)$(1): CMD = $$(COMPILE) $$(KM_CPPFLAGS) $$(CPPFLAGS) $$(COMPILE_FLAGS)
 $(OUTDIR)$(1): $(SRCDIR)$(2)
 $(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
@@ -199,15 +205,9 @@ define prog_rule
 # if a target has no objects, it is assumed to be a script that does
 # not need to be built (as it cannot be built anyway)
 cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(1))
-$(OUTDIR)$(1): KM_CPPFLAGS += $(call getvar,$(1),CPPFLAGS)
-$(OUTDIR)$(1): KM_CFLAGS += $(call getvar,$(1),CFLAGS)
-$(OUTDIR)$(1): KM_CXXFLAGS += $(call getvar,$(1),CXXFLAGS)
 $(OUTDIR)$(1): KM_LDFLAGS += $(call getvar,$(1),LDFLAGS)
-$(OUTDIR)$(1): COMPILE_FLAGS = $(if $(call is_cxx,$(1)),$$(KM_CXXFLAGS) $$(CXXFLAGS),$$(KM_CFLAGS) $(CFLAGS))
-$(OUTDIR)$(1): COMPILE = $(call getcc,$(1))
 $(OUTDIR)$(1): LINK = $(call getcc,$(1))
 $(OUTDIR)$(1): CMD = $$(COMPILE) $$(RPATH) $$(KM_LDFLAGS) $$(LDFLAGS) -- $(call getvar,$(1),LIBS)
-$(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(1)),CXX,CC)
 $(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getobj,$(1)))
 $(OUTDIR)$(1): $(if $(call getobj,$(1)),$(OUTDIR)$(call getcmdfile,$(1)))
 
@@ -215,7 +215,7 @@ $(if $(OUTDIR),$(eval vpath $(1) $(OUTDIR)))
 
 $(call varname,$(1))-obj += $(call getobj,$(1))
 
-$(foreach f,$(call getsrc,$(1)),$(eval $(call obj_rule,$(call getobjfile,$(f),$(1)),$(f))))
+$(foreach f,$(call getsrc,$(1)),$(eval $(call obj_rule,$(call getobjfile,$(f),$(1)),$(f),$(1))))
 endef
 
 define test_rule
