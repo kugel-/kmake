@@ -205,6 +205,8 @@ define prog_rule
 # if a target has no objects, it is assumed to be a script that does
 # not need to be built (as it cannot be built anyway)
 cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(1))
+cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(call getcmdfile,$(1)))
+
 $(OUTDIR)$(1): KM_LDFLAGS += $(call getvar,$(1),LDFLAGS)
 $(OUTDIR)$(1): LINK = $(call getcc,$(1))
 $(OUTDIR)$(1): CMD = $$(COMPILE) $$(RPATH) $$(KM_LDFLAGS) $$(LDFLAGS) -- $(call getvar,$(1),LIBS)
