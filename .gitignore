@@ -5,7 +5,7 @@
 *.deps
 *.libs
 
-Makefile
+/Makefile
 a/y/x
 a/y/y
 a/y/1/one
@@ -16,4 +16,5 @@ g/g
 g/g.c
 t/t1
 t/t2
-1
+/1
+/m/2/tool

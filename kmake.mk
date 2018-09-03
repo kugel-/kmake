@@ -75,7 +75,7 @@ endef
 define clearvars
 # clear each $xx-y
 $(foreach v,$(prog_vars) $(lib_vars) $(data_vars),$(call clearvar,$(v)))
-$(foreach v,$(test_vars) $(gen_vars) clean,$(call clearvar,$(v)))
+$(foreach v,$(test_vars) $(gen_vars) clean submake,$(call clearvar,$(v)))
 $(foreach v,$(flag_names) $(aflag_names),$(call clearvar,$(v)))
 extra-progs :=
 extra-libs :=
@@ -243,8 +243,11 @@ changedir = $(if $(OUTDIR),cd $(OUTDIR))
 stripwd = $(if $(STRIPWD),$(patsubst $(OUTDIR)%,%,$(1)),$(1))
 printcmd = $(if $(Q),@printf "  %-8s%s\n" "$(1)" "$(call stripwd,$(2))")
 
+sub_targets = all clean install install-strip
+
 .PHONY: FORCE all libs progs data generated check clean
 .PHONY: install install-progs install-libs install-data install-strip
+.PHONY: submakes $(addprefix submakes-,$(sub_targets))
 
 run-test-%:
 	$(Q)driver=$($(call varname,$*)-driver); $$driver $(KM_CHECKFLAGS) $<; \
@@ -255,18 +258,32 @@ libs: $(filter $(PARTDIR)%,$(ALL_LIBS))
 progs: $(filter $(PARTDIR)%,$(ALL_PROGS))
 data: $(filter $(PARTDIR)%,$(ALL_DATA))
 generated: $(filter $(PARTDIR)%,$(ALL_GEN))
+submakes: submakes-all
+
+$(addprefix do-submake-,$(all_submake)): do-submake-%: FORCE
+	$(eval SUBMAKE=$(dir $(firstword $(wildcard $(OUTDIR)$*Makefile $*Makefile))))
+	$(call printcmd,MAKE,$(SUBMAKE))
+	$(Q)$(MAKE) -C $(SUBMAKE) $(TARGET)
+
+$(foreach t,$(sub_targets),$(eval submakes-$(t): TARGET = $(t)))
+$(foreach t,$(sub_targets),$(eval submakes-$(t): $(addprefix do-submake-,$(filter $(PARTDIR)%,$(all_submake)))))
 
 all: libs progs data
-#~ check: $(addprefix run-test-,$(call varname,$(ALL_TESTS)))
+	$(Q)$(if $(all_submake),$(MAKE) submakes-all)
+
 check: $(addprefix run-test-,$(call varname,$(filter $(PARTDIR)%,$(ALL_TESTS))))
 
 clean:
 	$(call printcmd,RM,$(cleanfiles) $(addprefix $(OUTDIR),$(all_clean)))
 	$(Q)$(LIBTOOL_RM) $(cleanfiles) $(addprefix $(OUTDIR),$(all_clean))
+	$(Q)$(if $(all_submake),$(MAKE) submakes-clean)
 
 install: install-libs install-progs install-data
 install-strip: LIBTOOL_INSTALL += $(STRIPOPT)
 install-strip: install
+
+install install-strip:
+	$(Q)$(if $(all_submake),$(MAKE) submakes-$@)
 
 install-lib-%: FORCE
 	$(eval LA_LIBS := $(filter %.la,$(addprefix $(OUTDIR),$(all_$*))))
