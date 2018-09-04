@@ -259,6 +259,7 @@ sub_targets = all clean install install-strip
 .PHONY: FORCE all libs progs data generated check clean
 .PHONY: install install-progs install-libs install-data install-strip
 .PHONY: submakes $(addprefix submakes-,$(sub_targets))
+.PHONY: km-all km-clean km-check km-install km-install-strip
 
 run-test-%:
 	$(Q)driver=$($(call varname,$*)-driver); $$driver $(KM_CHECKFLAGS) $<; \
@@ -271,30 +272,44 @@ data: $(filter $(PARTDIR)%,$(ALL_DATA))
 generated: $(filter $(PARTDIR)%,$(ALL_GEN))
 submakes: submakes-all
 
-$(addprefix do-submake-,$(all_submake)): do-submake-%: FORCE
-	$(eval SUBMAKE=$(dir $(firstword $(wildcard $(OUTDIR)$*Makefile $*Makefile))))
-	$(call printcmd,MAKE,$(SUBMAKE))
-	$(Q)$(MAKE) -C $(SUBMAKE) $(TARGET)
+# It's crucial that submakes-% depends on km-% if all_submake becomes
+# empty due to the PARTDIR filter, otherwise all (etc.) has nothing to do
+define submake_rule_dir
+submake-$(1)-$(2): TARGET = $(1)
+submake-$(1)-$(2): DIR = $(2)
+submake-$(1)-$(2): SUBMAKE = $$(dir $$(firstword $$(wildcard $(OUTDIR)$$(DIR)Makefile $$(DIR)Makefile)))
+endef
 
-$(foreach t,$(sub_targets),$(eval submakes-$(t): TARGET = $(t)))
-$(foreach t,$(sub_targets),$(eval submakes-$(t): $(addprefix do-submake-,$(filter $(PARTDIR)%,$(all_submake)))))
+define submake_rule
+.PHONY: submakes-$(1)
+$(1): submakes-$(1)
+submakes-$(1): $(or $(addprefix submake-$(1)-,$(filter $(PARTDIR)%,$(all_submake))),km-$(1))
 
-all: libs progs data
-	$(Q)$(if $(all_submake),$(MAKE) submakes-all)
+ifneq ($(all_submake),)
+$(foreach d,$(all_submake),$(call submake_rule_dir,$(1),$(d))$(newline))
 
-check: $(addprefix run-test-,$(call varname,$(filter $(PARTDIR)%,$(ALL_TESTS))))
+.PHONY: $(addprefix submake-$(1)-,$(all_submake))
+$(addprefix submake-$(1)-,$(all_submake)): km-$(1)
+	$(call printcmd,MAKE,$$(SUBMAKE))
+	$(Q)$$(MAKE) -C $$(SUBMAKE) $$(TARGET)
+endif
+endef
 
-clean:
+# no $(newline) here!
+$(foreach t,$(sub_targets),$(eval $(call submake_rule,$(t))))
+
+km-all: libs progs data
+
+km-check: $(addprefix run-test-,$(call varname,$(filter $(PARTDIR)%,$(ALL_TESTS))))
+check: km-check
+
+km-clean:
 	$(call printcmd,RM,$(cleanfiles) $(addprefix $(OUTDIR),$(all_clean)))
 	$(Q)$(LIBTOOL_RM) $(cleanfiles) $(addprefix $(OUTDIR),$(all_clean))
-	$(Q)$(if $(all_submake),$(MAKE) submakes-clean)
 
-install: install-libs install-progs install-data
-install-strip: LIBTOOL_INSTALL += $(STRIPOPT)
-install-strip: install
-
-install install-strip:
-	$(Q)$(if $(all_submake),$(MAKE) submakes-$@)
+km-install: install-libs install-progs install-data
+km-install-strip: LIBTOOL_INSTALL += $(STRIPOPT)
+km-install-strip: install
 
 $(addprefix install-lib-,$(lib_vars)): install-lib-%: FORCE
 	$(eval LA_LIBS := $(filter %.la,$(addprefix $(OUTDIR),$(all_$*))))
