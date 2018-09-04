@@ -23,8 +23,8 @@ $(foreach v,$(prog_vars) $(lib_vars) $(data_vars),\
 
 # inherit $t-dir. $t-suffix, $t-driver from vars unless explicitly set
 $(foreach s,dir suffix driver,\
-	$(foreach v,$(prog_vars) $(lib_vars) $(data_vars) $(gen_vars) $(test_vars),\
-		$(foreach t,$($(v)-y),$(eval $(t)-$(s) ?= $($(v)-$(s))))))
+	$(foreach v,$(gen_vars) $(test_vars) $(prog_vars) $(lib_vars) $(data_vars),\
+		$(foreach t,$($(v)-y),$(if $($(v)-$(s)),$(eval $(t)-$(s) ?= $($(v)-$(s)))))))
 
 # prepends CFLAGS-y to $(bin)-CFLAGS-y (and friends)
 $(foreach flag,$(flag_names),\
