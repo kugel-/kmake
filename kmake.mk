@@ -178,15 +178,24 @@ $(1)-$(2)-y := $(call getvar,$(1),$(2)) $(call getvar,$(2))
 endef
 append_flags = $(eval $(call _append_flags,$(call varname,$(1)),$(2)))
 
+# https://stackoverflow.com/a/47927343/5126486: Insert a new-line in a Makefile $(foreach ) loop
+define newline =
+
+
+endef
+
 # Call with $1: object file, $2: src file, $3: target that $1 is part of
 define obj_rule
 cleanfiles += $(OUTDIR)$(1)
 cleanfiles += $(OUTDIR)$(call getdepfile,$(1))
 cleanfiles += $(OUTDIR)$(call getcmdfile,$(1))
 
-$(OUTDIR)$(1): KM_CPPFLAGS += $(call getvar,$(3),CPPFLAGS)
-$(OUTDIR)$(1): KM_CFLAGS += $(call getvar,$(3),CFLAGS)
-$(OUTDIR)$(1): KM_CXXFLAGS += $(call getvar,$(3),CXXFLAGS)
+# Use X := X Y notation to append to *FLAGS. For some reason,  += leads to
+# KM_LDFLAGS of one target leaking to other targets. I couldn't reproduce it
+# with a simplified Makefile yet but I think it's a bug in GNU make
+$(OUTDIR)$(1): KM_CPPFLAGS := $(KM_CPPFLAGS) $(call getvar,$(3),CPPFLAGS)
+$(OUTDIR)$(1): KM_CFLAGS   := $(KM_CFLAGS) $(call getvar,$(3),CFLAGS)
+$(OUTDIR)$(1): KM_CXXFLAGS := $(KM_CXXFLAGS) $(call getvar,$(3),CXXFLAGS)
 $(OUTDIR)$(1): COMPILE_FLAGS = $(if $(call is_cxx,$(3)),$$(KM_CXXFLAGS) $$(CXXFLAGS),$$(KM_CFLAGS) $(CFLAGS))
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(3)),CXX,CC)
 $(OUTDIR)$(1): COMPILE = $(call getcc,$(3))
@@ -194,7 +203,7 @@ $(OUTDIR)$(1): CMD = $$(COMPILE) $$(KM_CPPFLAGS) $$(CPPFLAGS) $$(COMPILE_FLAGS)
 $(OUTDIR)$(1): $(SRCDIR)$(2)
 $(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
 
-$(if $(OUTDIR),$(eval vpath $(1) $(OUTDIR)))
+$(if $(OUTDIR),vpath $(1) $(OUTDIR))
 endef
 
 define rpath_rule
@@ -207,17 +216,17 @@ define prog_rule
 cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(1))
 cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(call getcmdfile,$(1)))
 
-$(OUTDIR)$(1): KM_LDFLAGS += $(call getvar,$(1),LDFLAGS)
+$(OUTDIR)$(1): KM_LDFLAGS := $(KM_LDFLAGS) $(call getvar,$(1),LDFLAGS)
 $(OUTDIR)$(1): LINK = $(call getcc,$(1))
 $(OUTDIR)$(1): CMD = $$(COMPILE) $$(RPATH) $$(KM_LDFLAGS) $$(LDFLAGS) -- $(call getvar,$(1),LIBS)
 $(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getobj,$(1)))
 $(OUTDIR)$(1): $(if $(call getobj,$(1)),$(OUTDIR)$(call getcmdfile,$(1)))
 
-$(if $(OUTDIR),$(eval vpath $(1) $(OUTDIR)))
+$(if $(OUTDIR),vpath $(1) $(OUTDIR))
 
 $(call varname,$(1))-obj += $(call getobj,$(1))
 
-$(foreach f,$(call getsrc,$(1)),$(eval $(call obj_rule,$(call getobjfile,$(f),$(1)),$(f),$(1))))
+$(foreach f,$(call getsrc,$(1)),$(call obj_rule,$(call getobjfile,$(f),$(1)),$(f),$(1))$(newline))
 endef
 
 define test_rule
@@ -228,11 +237,11 @@ endef
 define gen_rule
 cleanfiles += $(addprefix $(OUTDIR),$(all_$(1)))
 
+$(foreach f,$(all_$(1)),$(call $(1)_rule,$(f))$(newline))
+
 $(call $(1)_recipe,$(all_$(1)))
 
-$(foreach f,$(all_$(1)),$(call $(1)_rule,$(f)))
-
-$(if $(OUTDIR),$(eval vpath $(all_$(1)) $(OUTDIR)))
+$(if $(OUTDIR),vpath $(all_$(1)) $(OUTDIR))
 endef
 
 $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
