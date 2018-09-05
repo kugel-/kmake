@@ -156,7 +156,7 @@ getdepsdir = $(dir $(1)).deps/
 # assumed the target already exists (allows to place scripts in $foo-y)
 getcmdfile = $(call getdepsdir,$(1))$(notdir $(1)).cmd
 getdepfile = $(call getdepsdir,$(1))$(notdir $(1)).dep
-getdepopt = -MD -MP -MF$(call getdepfile,$(1))
+getdepopt = -MD -MP -MF$(call getdepfile,$(1)) -MQ$(1)
 
 ALL_PROGS  = $(foreach v,$(prog_vars),$(all_$(v)))
 ALL_LIBS   = $(foreach v,$(lib_vars),$(all_$(v)))
@@ -374,4 +374,4 @@ $(addprefix $(OUTDIR),$(ALL_PROGS) $(ALL_TESTS)):
 
 .SUFFIXES: $(objexts) .mk
 
--include $(filter %.d,$(cleanfiles))
+-include $(filter %.dep,$(cleanfiles))
