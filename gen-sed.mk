@@ -9,7 +9,7 @@ $(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
 endef
 
 define sed_recipe
-$(OUTDIR)$(1):
+$(addprefix $(OUTDIR),$(1)):
 	$$(call printcmd,GEN,$$@)
 	$$(Q)sed $$(addprefix --expression=,$$(SED_SCRIPT)) $$< >$$@.tmp && ( mv $$@.tmp $$@ ; rm -f $$@.tmp )
 endef
