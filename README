@@ -1,0 +1,100 @@
+=====
+kmake
+=====
+
+kmake is an Automake replacement. It is based purely on GNU make and generates
+rules and recipes dynamically during make time, avoiding the need to generate
+Makefile files.
+
+It is in many ways similar to kbuild of the Linux kernel, but it is designed to
+build user space programs, static and shared libraries.
+
+Goals
+-----
+
+kmake is targetted to replace Automake in an autotools-based build system.
+It is not a drop-in replacement and it still depends on other components such
+as libtool.
+
+Global dependency tracking
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Automake uses recursive make by default, i.e. there are separate make
+invocations for each directory (separate processes). Depenencies cannot be
+tracked across those invocations, leading to incomplete builds if
+one wants to update only subdirectories.
+
+While it's possible to use a fully non-recursive setup with Automake,
+it is very troublesome. Automake doesn't have directory-level CFLAGS.
+Adding to AM_CFLAGS changes CFLAGS globally, so you have to fall back
+to per-target CFLAGS which quickly requires lots of more lines of
+Automake code and is hard to maintain in larger scale.
+
+Additionally, each sub-Makefile.am needs to know it's exact location in the
+project, unless you use %C% and %D% helpers which quickly render the
+Makefile.am files unreadable for humans.
+
+kmake on the other hand always uses a non-recursive setup. Sub-makefiles are
+included recursively, forming one big Makefile (in memory) which has the
+complete picture about evverything that can be built. It adds directory-level
+CFLAGS so you don't have to give up on modularity. Components can be separated
+by directory and maintained individually, but of course compnents can
+depend on other components and kmake ensures those dependencies
+are applied properly.
+
+If really needed, kmake provides a way to invoke a separate make process
+for some directories, but this is meant as a fall back mostly for 3rd party
+components.
+
+Avoid generating Makefiles
+^^^^^^^^^^^^^^^^^^^^^^^^^^  
+
+One weakness of Automake is the fact that it generates files, and the
+generated Makfiles contain rules to recreate themselves. When one manages
+to introduce a syntax problem to the Makefiles, all hope is lost. Due
+to the syntax problem, the Makefiles cannot be updated. Often enough
+it's easier to wipe the build tree.
+
+With kmake there is no such step to generate files. The sub-makefiles are
+included at make-time so syntax errors can be corrected immediately.
+
+Re-compile on compiler command line changes
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Compiler options affect the build output in many ways, so naturally
+a C file must be recompiled of a compiler option is added or removed.
+
+This works for all possible ways to specify the options, including the ones
+that you can pass on the make invocation (e.g. make CFLAGS=-g).
+
+Concise sub-makefiles
+^^^^^^^^^^^^^^^^^^^^^
+
+Makefile.am files are mostly compact, unless you need lots per target
+variables, then they can quickly become full of duplicate lines.
+
+Because kmake supports directory-level CFLAGS (and other flags, including
+custom flags that are not known to kmake initially), the sub-mafiles remain
+concise.
+
+To further aid compactness, kmake supports one-line conditionals similar to
+kbuild.
+
+Extensibility
+^^^^^^^^^^^^^
+
+kmake can be extended at make-time by so called generators. These add rules
+and recipes for custom targets that kmake doesn't support out of the box.
+
+This can be used to tell kmake how to generate source files with the help of
+external commands. If a build target depends on such a generated file kmake
+introduces the proper dependency so that the file is generated as needed.
+
+Those generators can benefit from the same mechanism that re-compiles C files
+when CFLAGS changes. A properly implemented generator re-generates output
+of any of the options to the external command changes.
+
+Generators can be chained, which makes it possible teach kmake to generate
+and build arbitrary file formats, without having to change kmake core itself.
+
+
