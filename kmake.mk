@@ -6,34 +6,32 @@ AT = @
 ifeq ($(V),2)
 QQ :=
 Q  :=
-LIBTOOL_SILENT :=
 else ifeq ($(V),1)
 QQ := @
 Q  :=
-LIBTOOL_SILENT :=
 else
 QQ := @
 Q  := @
-LIBTOOL_SILENT := --silent
 endif
 
 # COMPILE and LINK are set in per-target rules
-CC      ?= $(CROSS_COMPILE)cc
-CXX     ?= $(CROSS_COMPILE)c++
-AR      ?= $(CROSS_COMPILE)ar
-STRIP   ?= $(CROSS_COMPILE)strip
-RM      ?= rm -f
-LIBTOOL ?= libtool
+CC              ?= $(CROSS_COMPILE)cc
+CXX             ?= $(CROSS_COMPILE)c++
+AR              ?= $(CROSS_COMPILE)ar
+STRIP           ?= $(CROSS_COMPILE)strip
+RM              ?= rm -f
+LIBTOOL         ?= libtool
+INSTALL_PROGRAM ?= install
 
-LIBTOOL_COMPILE = $(LIBTOOL) $(LIBTOOL_SILENT) --tag CC --mode=compile $(COMPILE)
-LIBTOOL_LINK    = $(LIBTOOL) $(LIBTOOL_SILENT) --tag CC --mode=link $(LINK)
-LIBTOOL_RM      = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=clean $(RM)
-LIBTOOL_INSTALL = $(LIBTOOL) $(LIBTOOL_SILENT) --mode=install $(INSTALL_PROGRAM)
+LIBTOOL_COMPILE  = $(LIBTOOL) $(if $(Q),--silent) --tag CC --mode=compile $(COMPILE)
+LIBTOOL_LINK     = $(LIBTOOL) $(if $(Q),--silent) --tag CC --mode=link $(LINK)
+LIBTOOL_RM       = $(LIBTOOL) $(if $(Q),--silent) --mode=clean $(RM)
+LIBTOOL_INSTALL  = $(LIBTOOL) $(if $(Q),--silent) --mode=install $(INSTALL_PROGRAM)
 
-DEFAULT_SUFFIX ?= .c
-DEFAULT_DRIVER ?= "sh -c"
+DEFAULT_SUFFIX  ?= .c
+DEFAULT_DRIVER  ?= "sh -c"
 
-STRIPWD     ?=
+STRIPWD         ?=
 
 ifneq ($(S),)
 SRCDIR := $(S)
@@ -82,7 +80,13 @@ extra-libs :=
 extra-data :=
 endef
 
-subdir-y    ?= .
+subdir-y      ?= .
+prefix        ?= /usr/local/
+bindir        ?= $(prefix)bin
+sbindir       ?= $(prefix)sbin
+libdir        ?= $(prefix)lib
+datadir       ?= $(prefix)share
+sysconfdir    ?= $(prefix)etc
 
 prog_vars     := bin sbin
 prog_vars     += $(extra-progs)
