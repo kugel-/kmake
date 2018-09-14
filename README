@@ -2,6 +2,10 @@
 kmake
 =====
 
+
+.. contents::
+
+
 kmake is an Automake replacement. It is based purely on GNU make and generates
 rules and recipes dynamically during make time, avoiding the need to generate
 Makefile files.
@@ -46,6 +50,17 @@ If really needed, kmake provides a way to invoke a separate make process
 for some directories, but this is meant as a fall back mostly for 3rd party
 components.
 
+Modularity
+^^^^^^^^^^
+
+kmake tries hard to allow projects to remain modular. Instead of one large
+Makefile there are many sub-makfiles files. Each can specify its own programs,
+libs and data files, its own CFLAGS and library dependencies. It goes further
+by allowing to specify source files relative to the sub-makefile. Finally,
+some directories may even require their own make invocation, kmake supports
+this. All of this makes it usually harder to maintain modularity in a
+non-recursive make setup. However, kmake goes great lengths to achieve this.
+
 Avoid generating Makefiles
 ^^^^^^^^^^^^^^^^^^^^^^^^^^  
 
@@ -56,7 +71,8 @@ to the syntax problem, the Makefiles cannot be updated. Often enough
 it's easier to wipe the build tree.
 
 With kmake there is no such step to generate files. The sub-makefiles are
-included at make-time so syntax errors can be corrected immediately.
+included at make-time so syntax errors can be corrected immediately. There is
+no additional dependency since it's based on pure GNU make code.
 
 Re-compile on compiler command line changes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -98,3 +114,380 @@ Generators can be chained, which makes it possible teach kmake to generate
 and build arbitrary file formats, without having to change kmake core itself.
 
 
+Fundamental Concepts
+--------------------
+
+kmake uses terms for some concepts. Since these are used in the rest of the
+document they shall be explained first.
+
+Variables (vars)
+^^^^^^^^^^^^^^^^
+
+The key element in kmake are variables, or just short vars. kmake defines some
+but also learns new ones dynamically (see XXX dynamic variables). Vars
+generally have a assiciated list via the -y suffix and may have properties (see
+XXX) via other suffixes. The associated list usually holds files, but can also
+list options or other things. How the list is interpreted depends on the
+variable.
+
+Pre-defined variables include:
+
+`subdir`
+    This one lists sub-directories where kmake looks for sub-makefiles,
+    see `Recursive inclusion of subdir.mk`_
+
+`bin`, `sbin`
+    These list programs that must be built and installed.
+
+`libs`
+    This one lists libraries, static or shared, libraries that must be built and
+    installed.
+
+`data`, `sysconf`
+    These list data files that must be installed
+
+`tests`
+    This one lists test programs.
+
+These variable list files that must be installed (except for tests) and usually
+they need to be built before. In fact, these files become targets.
+
+subdir.mk add targets to the vars by assigning to their list (`var`-y):
+
+``bin-y := program``
+
+basically states that there is a target named program that must be built and
+installed.
+
+You may dynamically add more variables, for example if you need to install
+in a non-standard location, see `Costumization and extensions`_ for
+defining new vars and `Properties` on how to select the install directory.
+
+
+Targets
+^^^^^^^
+
+Arguably, this is what kmake is about: defining targets and updating them as
+necesary.
+
+kmake learns about targets by listing them in one of the variables. Whenever
+that is done, this implicitely creates target variables. The name matches
+that of the target, and being a variable it has a file list (`target`-y)
+and may have properties (see `Properties`_).
+
+There are no predefined target variables, kmake learns about them dynamically.
+
+For target variables, `target`-y usually lists source files. If no such
+specification exists, kmake attempts to find exactly one source file
+that matches the name of the target, plus a suffix that is defined by
+the `target`-suffix property (which defaults to `DEFAULT_SUFFIX` if
+defined, or simply .c).
+
+Additionally, `target`-y can list library targets that are defined in the same
+subdir.mk file.
+
+Here's an example for a target specification::
+
+    bin-y     := mytool
+    libs-y    := libmy.a
+
+    libmy.a-y := mylib.c # actually superflous
+    mytool-y  := tool.c
+    mytool-y  := libmy.a
+
+
+Properties
+^^^^^^^^^^
+
+Variables (including target vars) can have properties.
+
+Properties are inherited by targets. That means a target automatically gets
+the property value of the var that the target is listed under. But targets
+can be override suffixes with specific values.
+
+
+Pre-defined properties include:
+
+`-suffix`
+    The suffix that is used to find the default source file
+
+`-dir`
+    The installation directory used at `make install` time.
+
+`-driver`
+    The command that is used to run test targets
+
+
+As you might see, not all properties make sense on all targets and therefore
+some suffixes are simply ignored on some targets.
+
+
+Flags
+^^^^^
+
+Another class of variables are flag variables. These are used to list
+options that are passed to the compiler or other tools.
+
+Predefined flag vars include:
+
+`CPPFLAGS`, `CFLAGS`, `CXXFLAGS` and `LDFLAGS`
+    Options listed are passed to the preprocessor, compilers and the linker,
+    respectively.
+`LIBS`
+    Library path and link that are passed last to the linker.
+`DEPS`
+    Additional dependencies that used during compilation and linking stages,
+    depending on whether library our sources files are listed (see XXX
+    for a distinction between `var`-y).
+
+There is one more special property about flag variables: they can be combined
+with targets, effectively building *target-specific flags*. The values are
+generally appended to the flag variables, allowing to override
+some options for individual::
+
+    CFLAGS-y          := -O1
+    mytool-CFLAGS-y   := -O2
+    mytool-LIBS-y     := -lz
+
+
+Recursive inclusion of subdir.mk
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Besides variables, one more fundamental concept is the recursive inclusion of
+sub-makefiles, which must be named subdir.mk each. Instead of spelling out one
+large Makefile, kmake reads many subdir.mk files in order to dynamically
+generate that large Makefile only in memory. The subdir.mk files itself are
+concise and specify only local targets.
+
+Example ``subdir.mk``::
+
+  subdir-y           := sub/ dir/
+
+  CFLAGS-y           := -O2
+
+  bin-y              := program1 program2
+  sbin-y             := program3
+  libs-y             := libmy.a
+
+  program2-suffix    := .cpp
+  program3-y         := othername.c
+  libmy.a-CPPFLAGS-y := -DHAVE_FOO
+  libmy.a-y          := my.c
+
+
+subdir.mk generally don't add to global variables. They assign to some var, and
+then setup target vars. They also may set flag vars or target-specific flags as
+required. Crucially, they also assign sub-directories to the subdir-y list.
+This will cause kmake to recursivly read subdir.mk files in a depth-first
+fashion. Please be note that the trailing slash following the directory names
+is mandatory.
+
+Between including two subdir.mk, kmake resets all kinds of vars (except target
+vars) to empty values, so no subdir.mk has the chance to accidentally delete
+targets defined in another subdir.mk or otherwise affect them negatively. Note
+that this is also true for subdir.mk files in a sub-directory. Variables,
+including CFLAGS and friends, do *not* affect sub-directories in any way.
+
+Hoever, target vars not reset since other subdir.mk files shouldn't know about
+them. This may be used to have multiple subdir.mk contribute to a global target
+but it may be more appropriate to implement this with static libraries instead.
+
+The var values provided by all subdir.mk contribute to a number of lists. For
+example `all_bin` lists all programs that have been assigned to `bin`-y across
+all subdir.mk files. Likewise, there are all_sbin and all_libs lists and many
+more. This is how kmake remembers all possible targets in order to generate
+rules after processing all subdir.mk files.
+
+Generators
+^^^^^^^^^^
+
+So far we have covered targets that are built from C or C++ source files,
+as kmake primarily targets those two languages. However, since one of kmake's
+stated goes is extensibility, there is the concept of `generators`. That is,
+a kind of plugins that enable kmake to build targets that it otherwise
+doesn't know about.
+
+Originally, this was designed to allow for running programs which in turn
+generate source code files. Therefore, the output of generators can be input
+of other targets and even other generators. In fact, generators can be changed
+arbitrarily, for example to pre- and post-process files with sed.
+
+Details on how to create generators follow in section `Costumization and
+extensions`_.
+
+kmake ships two generators (for calling sed and cat) but these are not enabled
+by default.
+
+How to use kmake
+----------------
+
+Basic setup
+^^^^^^^^^^^
+
+In order to make use of kmake you must create a so-called stub-makefile that
+includes kmake.mk. Usually this would be your Makefile that make uses by
+default.
+
+Besides including kmake.mk, the Makefile may set some default parameters for
+kmake but it's not strictly required. The minimialistic setup looks like this,
+assuming you have imported kmake's source tree into a subdirectory called
+kmake.
+
+`Makefile`::
+
+    include kmake.mk
+
+`subdir.mk`::
+
+    bin-y := program
+
+As you can see, the most minimalistic setup requires just the stub-makefile
+and one subdir.mk file.
+
+Parameterization
+^^^^^^^^^^^^^^^^
+
+kmake can be parameterized through defining some global variables, either
+before including kmake.mk or simply by mentioning them on the make command
+line.
+
+Prefix
+``````
+
+Prefix refers to the installation directories. In a basic setup, kmake
+uses the following defaults::
+
+  prefix         = /usr/local/
+  bin-dir        = /usr/local/bin
+  sbin-dir       = /usr/local/sbin
+  libs-dir       = /usr/local/lib
+  data-dir       = /usr/local/share
+  sysconf-dir    = /usr/local/etc
+  DEFAULT_SUFFIX = .c
+  DEFAULT_DRIVER = "sh -c"
+
+  CROSS_COMPILE  =
+  CC             = cc
+  CXX            = c++
+  AR             = ar
+  STRIP          = strip
+  LIBTOOL        = libtool
+  INSTALL        = install
+
+If you want to override the above defaults, you can define ``prefix`` to
+affects all directories, or define `bindir`, `sbinddir`, `libdir`, `datadir`
+and `sysconfdir` to override individual ones.
+
+`DEFAULT_SUFFIX` can be set to ``.cpp`` if you project primarily consists of
+C++ sources. Remember that you can always set the `var`-suffix property
+for variables and targets to override even `DEFAULT_SUFFIX`.
+
+`DEFAULT_DRIVER` can be overridden to any command, by default we'll just pass
+them to the shell. If you have lots of Python-based unit tests you may want to
+pass them to the python interpreter directly. Remember that you can always set
+the `var`-driver property for variables and targets to override even
+`DEFAULT_DRIVER`.
+
+Toolchain
+`````````
+
+Toolchain selection can also be paramterized. You can define `CROSS_COMPILE`
+which is prefixed to the relevant toolchain programs (`CC`, `CXX`, `AR` and
+`STRIP`). Additionally you can also change the individual programs, e.g. to use
+`clang` instead of the usual system's default of `gcc`. However, be aware that
+`CROSS_COMPILE` is applied regardless.
+
+Silent / verbose output
+````````````````````````
+
+By default, kmake produces quite and pretty output, like this::
+
+  GEN     g/g.c
+  CC      a/liba.a-a.o
+  CC      a/libx.la-libx.lo
+
+To get the command lines that are executed, set ``V=1``. Some tools output
+even more details if you set ``V=2`` but that may produce really lots of
+output.
+
+Separate output directory
+`````````````````````````
+
+By default, kmake places output files, like objects, library files and programs
+to the current directory. However, it is recommended to use a separate
+directory for output files, since that allows you to retain a clean source
+tree. Output directories are defined by setting `O=some/builddir`. Then,
+kmake will place every output file under that sub-directory. The directory
+structure of the source tree is reproduced, except if no outfile would be
+produced in a given directory.
+
+Costumization and extensions
+----------------------------
+
+As has been mentioned before, kmake leaves room for extensions, because the
+defaults usually don't fit anyone.
+
+Adding vars
+^^^^^^^^^^^
+
+Besides overriding properties of pre-defined variables, like setting `bin-dir`
+to something else, you can also add vars (vars as in `Variables (vars)`_). This
+is helpful if you have custom installation directories but also need `bin` and
+`sbin` as they are.
+
+This is also useful if you build plugins for some other application and
+you must put them into a directory where that application looks for plugins.
+
+To add vars, define any one (or more) of the following variables,
+ether in any subdir.mk or in the stub-makefile:
+
+`extra-progs`
+    Vars mentioned here list programs
+
+`extra-libs`
+    Vars mentioned here list libraries
+
+`extra-data`
+    Vars mentioned here list data files
+
+`extra-tests`
+    Vars mentioned here list test programs
+
+
+Again, you add vars. Then you use these new vars to list targets and set
+properties. The following example adds a data var `src` for source code
+installed to /usr/src::
+
+    extra-data  := src
+
+    src-dir     := $(prefix)src
+    src-y       := a.c b.c c.c
+
+If multiple subdir.mk files add the same var, kmake will take care in the
+following way: the list (`var`-y) is appended each time it is mentioned, so
+targets are not lost. However, the last setter of a given property takes
+precedence, so each subdir.mk should set the same property values.
+Alternatively (and recommend), you can add the var and set its properties in
+the stub-makefile and then only add to the var's list in the subdir.mk files
+(which is exactly the same way for pre-defined variables).
+
+The following ones are only relevant if you need to extend kmake with
+`Generators`_.
+
+`extra-gen`
+    Vars mentioned here list generators
+
+`extra-flags`, `extra-append-flags`
+    These variables list flag vars. They differ in the way kmake
+    handles them vs. target-specific flags-
+
+With `extra-flags` and `extra-append-flags` you can add flag vars that
+behave much the same as the pre-defined ones like CFLAGS (see `Flags`). But
+kmake wouldn't use them in any rule so they are only useful if you use them
+in rules of custom generators.
+
+
+Adding generators
+^^^^^^^^^^^^^^^^^
+
+TODO
