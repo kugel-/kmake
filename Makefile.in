@@ -1,8 +1,0 @@
-include autoconf.mk
-include gen-sed.mk
-
-subdir-y := .
-
-include @srcdir@/kmake.mk
-
-
