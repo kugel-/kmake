@@ -312,11 +312,55 @@ generate source code files. Therefore, the output of generators can be input
 of other targets and even other generators. In fact, generators can be changed
 arbitrarily, for example to pre- and post-process files with sed.
 
-Details on how to create generators follow in section `Costumization and
-extensions`_.
+Please note that the generators are not executed unless the output file
+is a prerequsite of some other target or is to be installed itself.
 
 kmake ships two generators (for calling sed and cat) but these are not enabled
-by default.
+by default. They are enabled by including the files `gen-sed.mk` and
+`gen-cat.mk` respectively.
+
+gen-sed
+  The sed generator allows you to feed a file into sed in order to generate
+  a processed version of it. You can use for any number of output files,
+  and each output file can specifiy its own SED_SCRIPT that defines
+  the script that is passed to sed.
+
+  Here's an example::
+
+    sysconf-y        := output.txt
+    sed-y            := output.txt
+
+    output.txt-y            := input.txt
+    output.txt-SED_SCRIPT-y := 's,foo,bar,'
+
+  This will generate out by running sed on the file input.txt to generate
+  output.txt. Since the file output.txt is to be installed, sed will be
+  executed if necessary: if output.txt doesn't exist, if input.txt is newer
+  or if SED_SCRIPT is changed since the last run.
+
+gen-cat
+  The cat generator allows you to concat a number of input files in order to
+  generate a combined output file (using the cat program). Again, you can use
+  the cat generator for multiple output files, each with its own set of input
+  files. However it doesn't pass any special flag to cat.
+
+  Here's an example::
+
+    bin-y            := program
+    cat-y            := combined.c
+
+    program-y        := combined.c
+    combined.c-y     := file1.c file2.c
+
+  The cat generator will be executed since a program requires the output file.
+  The output file is generated as needed: if it doesn't exist or any
+  of its input files is newer.
+
+
+You can see that generators are quite powerful. In fact, they make kmake truly
+extensible since generators can be dynamically added to kmake if a project has
+specific requirements. Details on how to create generators follow in section
+`Costumization and extensions`_.
 
 How to use kmake
 ----------------
@@ -327,6 +371,9 @@ Basic setup
 In order to make use of kmake you must create a so-called stub-makefile that
 includes kmake.mk. Usually this would be your Makefile that make uses by
 default.
+
+The stub-makefile is also the file where you include the shipped generators,
+gen-sed.mk and gen-cat.mk, before including kmake.mk.
 
 Besides including kmake.mk, the Makefile may set some default parameters for
 kmake but it's not strictly required. The minimialistic setup looks like this,
@@ -490,4 +537,109 @@ in rules of custom generators.
 Adding generators
 ^^^^^^^^^^^^^^^^^
 
-TODO
+Generators are powerful and make kmake truly extensible. Generators can add
+arbitrary build rules to kmake, allowing to build just about anything. In
+theory they are even capable of adding support for new programming languages,
+though it hasn't beed shown in practice.
+
+Adding generators is done primarily by listing it in `extra-gen`, in the same
+way as adding a var (see above). It is recommended to do this before including
+`kmake.mk`, so that all subdir.mk can easily use it . However, it's also
+perfectly OK if a generator is defined and used only in a single subdir.mk.
+
+The name you chose for the generator is significant because kmake will call out
+for two macros, named after the generator, when it builds up all build rules
+after processing all subdir.mk files. So, if the generator is named `foo`, then
+kmake will call the macros `foo_rule` and `foo_recipe`. The former will be
+called once for every target (the target is passed as the first argument),
+while the latter is called exactly once (the list of all targets is passed as
+the first argument).
+
+Optionally, you can assign the suffix property to your generator variable if
+you want kmake to automatically find source files for targets.
+
+Also optional is telling kmake about additional flags (see `Flags`_) that
+kmake shall learn via `extra-flags`. Flag vars listed here will be recorded
+in the same manner as CFLAGS. The flags can be used in the rule and recipe
+parts of the generator to target pass specific options to the program.
+
+As an example, let's look at the sed generator that ships with kmake and
+then detail what to do in the rule and recipe parts of a generator::
+
+  extra-gen   += sed
+  extra-flags += SED_SCRIPT
+
+  define sed_rule
+  $(OUTDIR)$(1): SED_SCRIPT = $(call getvar,$(1),SED_SCRIPT)
+  $(OUTDIR)$(1): CMD = $$(SED_SCRIPT)
+  $(OUTDIR)$(1): $(SRCDIR)$(call getsrc,$(1))
+  $(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
+  endef
+
+  define sed_recipe
+  $(addprefix $(OUTDIR),$(1)):
+    $$(call printcmd,GEN,$$@)
+    $$(Q)sed $$(addprefix --expression=,$$(SED_SCRIPT)) $$< >$$@.tmp && ( mv $$@.tmp $$@ ; rm -f $$@.tmp )
+  endef
+
+  sed-suffix := .c.sed
+
+Generator rule
+``````````````
+
+The rule part is more kmake-specific that the recipe part, and here kmake
+offers some macros that it uses internally as well.
+
+$(OUTDIR)
+    Evaluates to the output directory if it's set via ``make O=path``
+    Always prefix targets with $(OUTDIR), kmake doesn't do this before
+    passing them to your macros, because some other macros require
+    the non-prefixed version, in particular getsrc below.
+
+$(SRCDIR)
+    Evaluates to the source directory if it's set via ``make S=path`` and
+    make's working directory is outside of it. Always prefix source files with
+    $(SRCDIR), getsrc (see below) doesn't do this because it would hurt other
+    users of that macro.
+
+getsrc
+    Basically, this gets the list of files formed by `var`-y, `var`-DEPS-y and
+    directory-level DEPS (in that order). The value of `var`-y is subject
+    to the automatic source file detection if the generator has a suffix
+    property.
+    Pass the target name ($1) without $(OUTDIR) prefix.
+    Always add the source file list first to the prerequistes of the target.
+
+getcmdfile
+    This is optional but it allows kmake to generate .cmd file
+    (see `Re-compile on compiler command line changes`_) so that the output
+    file will be regenerated when relevant flags change. kmake will
+    write the contents of the variable $(CMD) into the .cmd file, so usually
+    that variable is a target-specific one (in GNU make terms).
+
+getvar
+    This macro retrieves the target-specific value of a flag/var. Usually
+    this is the concatination of a directory-level flag and target-specific
+    flag.
+
+The sed generator also tells kmake about a `SED_SCRIPT` flag that it should
+record. kmake will automatically notice directory-level `SED_SCRIPT`-y vars
+as well as target-specific target-`SED_SCRIPT`-y vars and store them.
+The generator then uses the value as a script that is passed to sed. The
+value of the `SED_SCRIPT` flag is also fed into the `$(CMD)` variable,
+i.e. kmake will populate the .cmd file with the script. As a result,
+changing the script will automatically force regeneration of output files.
+
+Generator recipe
+````````````````
+
+In the the recipe part the generator must define a plain make recipe to
+actually generate the output files. Usually it's best to take the list
+of targets and generate a recipe for each as done in the sed generator. But
+it may be necessary to define a pattern rule, especially if the generator
+outputs more than one file.
+
+Here kmake cannot aid much. You can reference target specific variables that
+are setup in the rule part of the generator to pass options to the generating
+program. Additionally, you can use kmake's `printcmd` macro to output a pretty
+line in the absence of ``make V=1`` (see `Silent / verbose output`_).
