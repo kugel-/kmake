@@ -151,6 +151,8 @@ getobjfile = $(call getobjbase,$(1),$(call varname,$(2))).$(call getobjext,$(2))
 getobj = $(strip $(foreach src,$(call getsrc,$(1)),$(call getobjfile,$(src),$(1))) $(call getnsrc,$(1)))
 # call with $(1) = list of source files
 is_cxx = $(filter %.cpp,$(1))
+# call with $(1) = target (incl. extension)
+is_lib = $(filter %.la %.a,$(1))
 # call with $(1) = list of source files, returns CXX if one or more C++ files are found, else CC
 getcc = $(if $(call is_cxx,$(1)),$(CXX),$(CC))
 # call with $(1) = target (incl. extension)
@@ -197,9 +199,9 @@ cleanfiles += $(OUTDIR)$(call getcmdfile,$(1))
 # Use X := X Y notation to append to *FLAGS. For some reason,  += leads to
 # KM_LDFLAGS of one target leaking to other targets. I couldn't reproduce it
 # with a simplified Makefile yet but I think it's a bug in GNU make
-$(OUTDIR)$(1): KM_CPPFLAGS := $(KM_CPPFLAGS) $(call getvar,$(3),CPPFLAGS)
-$(OUTDIR)$(1): KM_CFLAGS   := $(KM_CFLAGS) $(call getvar,$(3),CFLAGS)
-$(OUTDIR)$(1): KM_CXXFLAGS := $(KM_CXXFLAGS) $(call getvar,$(3),CXXFLAGS)
+$(OUTDIR)$(1): KM_CPPFLAGS := $(KM_CPPFLAGS) $(KM_CPPFLAGS_$(if $(call is_lib,$(3)),LIB,PROG)) $(call getvar,$(3),CPPFLAGS)
+$(OUTDIR)$(1): KM_CFLAGS   := $(KM_CFLAGS)   $(KM_CFLAGS_$(if $(call is_lib,$(3)),LIB,PROG))   $(call getvar,$(3),CFLAGS)
+$(OUTDIR)$(1): KM_CXXFLAGS := $(KM_CXXFLAGS) $(KM_CXXFLAGS_$(if $(call is_lib,$(3)),LIB,PROG)) $(call getvar,$(3),CXXFLAGS)
 $(OUTDIR)$(1): COMPILE_FLAGS = $(if $(call is_cxx,$(2)),$$(KM_CXXFLAGS) $$(CXXFLAGS),$$(KM_CFLAGS) $(CFLAGS))
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(2)),CXX,CC)
 $(OUTDIR)$(1): COMPILE = $(call getcc,$(2))
@@ -220,7 +222,7 @@ define prog_rule
 cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(1))
 cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(call getcmdfile,$(1)))
 
-$(OUTDIR)$(1): KM_LDFLAGS := $(KM_LDFLAGS) $(call getvar,$(1),LDFLAGS)
+$(OUTDIR)$(1): KM_LDFLAGS := $(KM_LDFLAGS) $(KM_LDFLAGS_$(if $(call is_lib,$(1)),LIB,PROG)) $(call getvar,$(1),LDFLAGS)
 $(OUTDIR)$(1): LINK = $(call getcc,$(call getsrc,$(1)))
 $(OUTDIR)$(1): CMD = $$(COMPILE) $$(RPATH) $$(KM_LDFLAGS) $$(LDFLAGS) -- $(call getvar,$(1),LIBS)
 $(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getobj,$(1)))
