@@ -15,9 +15,9 @@ Q  := @
 endif
 
 # COMPILE and LINK are set in per-target rules
-CC              ?= $(CROSS_COMPILE)cc
-CXX             ?= $(CROSS_COMPILE)c++
-AR              ?= $(CROSS_COMPILE)ar
+CC              := $(CROSS_COMPILE)$(CC)
+CXX             := $(CROSS_COMPILE)$(CXX)
+AR              := $(CROSS_COMPILE)$(AR)
 STRIP           ?= $(CROSS_COMPILE)strip
 RM              ?= rm -f
 LIBTOOL         ?= libtool
