@@ -378,6 +378,6 @@ $(addprefix $(OUTDIR),$(ALL_PROGS) $(ALL_TESTS)):
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(if $(filter %.la %.lo,$+),$(LIBTOOL_LINK),$(LINK)) $(KM_LDFLAGS) $(LDFLAGS) -o $@ $(filter-out %.cmd,$+) $(call getvar,$(@),LIBS)
 
-.SUFFIXES: $(objexts) .mk
+.SUFFIXES: $(objexts) .mk .dep .cmd
 
 -include $(filter %.dep,$(cleanfiles))
