@@ -160,9 +160,15 @@ getdepsdir = $(dir $(1)).deps/
 # call with $(1) = target (incl. extension)
 # Note this is returns empty if the target has no source files, since it is
 # assumed the target already exists (allows to place scripts in $foo-y)
+getoldcmdfile = $(call getdepsdir,$(1))$(notdir $(1)).oldcmd
 getcmdfile = $(call getdepsdir,$(1))$(notdir $(1)).cmd
 getdepfile = $(call getdepsdir,$(1))$(notdir $(1)).dep
 getdepopt = -MD -MP -MF$(call getdepfile,$(1)) -MQ$(1)
+# returns empty if $(1) and $(1) are the same
+# works lists (strings containing spaces) as well
+strneq = $(subst $(1),,$(2))$(subst $(2),,$(1))
+# returns x if $(1) and $(1) are the same
+streq = $(if $(call strneq,$(1),$(2)),,x)
 
 ALL_PROGS  = $(foreach v,$(prog_vars),$(all_$(v)))
 ALL_LIBS   = $(foreach v,$(lib_vars),$(all_$(v)))
@@ -195,6 +201,7 @@ define obj_rule
 cleanfiles += $(OUTDIR)$(1)
 cleanfiles += $(OUTDIR)$(call getdepfile,$(1))
 cleanfiles += $(OUTDIR)$(call getcmdfile,$(1))
+cleanfiles += $(OUTDIR)$(call getoldcmdfile,$(1))
 
 # Use X := X Y notation to append to *FLAGS. For some reason,  += leads to
 # KM_LDFLAGS of one target leaking to other targets. I couldn't reproduce it
@@ -221,6 +228,7 @@ define prog_rule
 # not need to be built (as it cannot be built anyway)
 cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(1))
 cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(call getcmdfile,$(1)))
+cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(call getoldcmdfile,$(1)))
 
 $(OUTDIR)$(1): KM_LDFLAGS := $(KM_LDFLAGS) $(KM_LDFLAGS_$(if $(call is_lib,$(1)),LIB,PROG)) $(call getvar,$(1),LDFLAGS)
 $(OUTDIR)$(1): LINK = $(call getcc,$(call getsrc,$(1)))
@@ -341,13 +349,16 @@ $(addprefix install-data-,$(data_vars)): install-data-%: FORCE
 
 install-data: $(addprefix install-data-,$(data_vars))
 
+# We have to use $(shell) for mkdir so that make executes it before other make
+# (especially $(file)), as the recipe is all make functions.
+# Also we have to make sure that we don't end up with an empty recipe,
+# so we set a fallback to : (shell no-op)
 $(OUTDIR)%.cmd: FORCE
-	$(AT)mkdir -p $(dir $@)
-	$(QQ)(cmd="$(CMD)" ; \
-	new=$$(echo $$cmd | md5sum | cut -c-32); \
-	uptodate= ; \
-	if [ -f "$@" ]; then old=$$(cut -c-32 $@); test "$$old" = "$$new" && uptodate=y ; fi ;\
-	test -n "$$uptodate" || echo "$$new" - "$$cmd" >$@)
+	$(AT)$(shell mkdir -p $(dir $@))
+	$(eval L_OBJ := $(call addpath,$(subst .deps/$(notdir $*),,$*),$(notdir $*)))
+	$(eval L_CMD := $(strip $(CMD)))
+	$(QQ)$(if $(call strneq,$(OLDCMD),$(L_CMD)),$(file >$(OUTDIR)$*.oldcmd,$$(OUTDIR)$(L_OBJ): OLDCMD = $(L_CMD)))
+	$(QQ)$(if $(call strneq,$(OLDCMD),$(L_CMD)),touch $@,:)
 
 # prevent %.o to become a fallback rule for any file
 all_obj = $(filter %.o,$(cleanfiles))
@@ -378,6 +389,7 @@ $(addprefix $(OUTDIR),$(ALL_PROGS) $(ALL_TESTS)):
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(if $(filter %.la %.lo,$+),$(LIBTOOL_LINK),$(LINK)) $(KM_LDFLAGS) $(LDFLAGS) -o $@ $(filter-out %.cmd,$+) $(call getvar,$(@),LIBS)
 
-.SUFFIXES: $(objexts) .mk .dep .cmd
+.SUFFIXES: $(objexts) .mk .dep .cmd .oldcmd
 
 -include $(filter %.dep,$(cleanfiles))
+-include $(filter %.oldcmd,$(cleanfiles))
