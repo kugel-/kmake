@@ -250,6 +250,8 @@ endef
 
 define gen_rule
 cleanfiles += $(addprefix $(OUTDIR),$(all_$(1)))
+cleanfiles += $(addprefix $(OUTDIR),$(foreach f,$(all_$(1)),$(call getcmdfile,$(f))))
+cleanfiles += $(addprefix $(OUTDIR),$(foreach f,$(all_$(1)),$(call getoldcmdfile,$(f))))
 
 $(foreach f,$(all_$(1)),$(call $(1)_rule,$(f))$(newline))
 
