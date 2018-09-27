@@ -318,8 +318,9 @@ km-check: $(addprefix run-test-,$(call varname,$(filter $(PARTDIR)%,$(ALL_TESTS)
 check: km-check
 
 km-clean:
-	$(call printcmd,RM,$(cleanfiles) $(addprefix $(OUTDIR),$(all_clean)))
-	$(Q)$(LIBTOOL_RM) $(cleanfiles) $(addprefix $(OUTDIR),$(all_clean))
+	$(call printcmd,RM,$(filter-out %.dep %.cmd %.oldcmd,$(cleanfiles)) $(addprefix $(OUTDIR),$(all_clean)))
+	$(Q)$(LIBTOOL_RM) $(filter-out %.dep %.cmd %.oldcmd,$(cleanfiles)) $(addprefix $(OUTDIR),$(all_clean))
+	$(QQ)$(LIBTOOL_RM) $(filter %.dep %.cmd %.oldcmd,$(cleanfiles))
 
 km-install: install-libs install-progs install-data
 km-install-strip: LIBTOOL_INSTALL += $(STRIPOPT)
