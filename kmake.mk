@@ -127,11 +127,17 @@ endef
 objexts := .la .a .lo .o
 objpats := $(addprefix %,$(objexts))
 
-varname = $(foreach x,$(1),$(notdir $(x)))
-prefixtarget = $(foreach src,$(1),$(addprefix $(dir $(src))$(2)-,$(basename $(call varname,$(src)))))
-
 # prepend $(dir $(1)) to $(2), except if it's './' or $(2) is an absolute path
 addpath = $(patsubst $(dir $(1))/%,/%,$(addprefix $(filter-out ./,$(dir $(1))),$(2)))
+
+varname = $(foreach x,$(1),$(notdir $(x)))
+
+# call with $(1) = single src file, $(2) = target varname
+# inserts the target varname between the path to the source file
+# and its filename, and removes the extension
+# e.g. $(1) = a/b/c.c $(2) = liba.a => a/b/liba.a-c
+prefixtarget = $(call addpath,$(1),$(2)-$(basename $(call varname,$(1))))
+
 getvar = $($(call varname,$(1))$(if $(2),-$(2))-y)
 # call with $(1) = target (incl. extension)
 getdefsrc = $(if $($(call varname,$(1))-suffix),$(basename $(call varname,$(1)))$($(call varname,$(1))-suffix))
@@ -141,9 +147,9 @@ getsrc = $(strip $(call addpath,$(1),$(or $(filter-out $(objpats),$(call getvar,
 getnsrc = $(call addpath,$(1),$(filter $(objpats),$(call getvar,$(1)))) $(filter $(objpats),$(call getvar,$(1),DEPS))
 # call with $(1) = target (incl. extension)
 getobjext = $(if $(filter %.la,$(1)),lo,o)
-# call with $(1) = src file, $(2) = target varname
+# call with $(1) = single src file, $(2) = target varname
 getobjbase = $(call prefixtarget,$(1),$(2))
-# call with $(1) = src file, $(2) = target (incl. extension)
+# call with $(1) = single src file, $(2) = target (incl. extension)
 getobjfile = $(call getobjbase,$(1),$(call varname,$(2))).$(call getobjext,$(2))
 # call with $(1) = target (incl. extension)
 # Note this is returns empty if the target has no source files, since it is
