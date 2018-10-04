@@ -362,10 +362,12 @@ install-data: $(addprefix install-data-,$(data_vars))
 # (especially $(file)), as the recipe is all make functions.
 # Also we have to make sure that we don't end up with an empty recipe,
 # so we set a fallback to : (shell no-op)
+# Finally, we must ensure .cmd is created iff it doesn't exist, even if any of
+# CMD and OLDCMD is empty, so we write at least one character (; is appended)
 $(OUTDIR)%.cmd: FORCE
 	$(AT)$(shell mkdir -p $(dir $@))
 	$(eval L_OBJ := $(call addpath,$(subst .deps/$(notdir $*),,$*),$(notdir $*)))
-	$(eval L_CMD := $(strip $(CMD)))
+	$(eval L_CMD := $(strip $(CMD));)
 	$(QQ)$(if $(call strneq,$(OLDCMD),$(L_CMD)),$(file >$(OUTDIR)$*.oldcmd,$$(OUTDIR)$(L_OBJ): OLDCMD = $(L_CMD)))
 	$(QQ)$(if $(call strneq,$(OLDCMD),$(L_CMD)),touch $@,:)
 
