@@ -219,6 +219,7 @@ $(OUTDIR)$(1): COMPILE_FLAGS = $(if $(call is_cxx,$(2)),$$(KM_CXXFLAGS) $$(CXXFL
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(2)),CXX,CC)
 $(OUTDIR)$(1): COMPILE = $(call getcc,$(2))
 $(OUTDIR)$(1): CMD = $$(COMPILE) $$(KM_CPPFLAGS) $$(CPPFLAGS) $$(COMPILE_FLAGS)
+$(OUTDIR)$(1): PARTS = $(SRCDIR)$(2)
 $(OUTDIR)$(1): $(SRCDIR)$(2)
 $(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
 
@@ -239,6 +240,7 @@ cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(call getoldcmdfile,$(1)))
 $(OUTDIR)$(1): KM_LDFLAGS := $(KM_LDFLAGS) $(KM_LDFLAGS_$(if $(call is_lib,$(1)),LIB,PROG)) $(call getvar,$(1),LDFLAGS)
 $(OUTDIR)$(1): LINK = $(call getcc,$(call getsrc,$(1)))
 $(OUTDIR)$(1): CMD = $$(COMPILE) $$(RPATH) $$(KM_LDFLAGS) $$(LDFLAGS) -- $(call getvar,$(1),LIBS)
+$(OUTDIR)$(1): PARTS = $(addprefix $(OUTDIR),$(call getobj,$(1)))
 $(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getobj,$(1)))
 $(OUTDIR)$(1): $(if $(call getobj,$(1)),$(OUTDIR)$(call getcmdfile,$(1)))
 
@@ -371,34 +373,40 @@ $(OUTDIR)%.cmd: FORCE
 	$(QQ)$(if $(call strneq,$(OLDCMD),$(L_CMD)),$(file >$(OUTDIR)$*.oldcmd,$$(OUTDIR)$(L_OBJ): OLDCMD = $(L_CMD)))
 	$(QQ)$(if $(call strneq,$(OLDCMD),$(L_CMD)),touch $@,:)
 
+# Use PARTS in the object file recipes instead of $< since it's allowed
+# to specify additional dependencies in make-style (e.g. "foo-bar.lo: foo.h")
+# so the appropriate source file is not necessarily the first prerequisite.
+# Likewise for linked binaries, the prerequisites may contain unexpected
+# extra files (at least .cmd, but maybe a linker script too).
+
 # prevent %.o to become a fallback rule for any file
 all_obj = $(filter %.o,$(cleanfiles))
 $(all_obj): $(OUTDIR)%.o:
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)/.deps
-	$(Q)$(COMPILE) $(call getdepopt,$@) $(KM_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS) -c -o $@ $<
+	$(Q)$(COMPILE) $(call getdepopt,$@) $(KM_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS) -c -o $@ $(PARTS)
 
 # prevent %.lo to become a fallback rule for any file
 all_lobj = $(filter %.lo,$(cleanfiles))
 $(all_lobj): $(OUTDIR)%.lo:
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)/.deps
-	$(Q)$(LIBTOOL_COMPILE) $(call getdepopt,$@) $(KM_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS) -c -o $@ $<
+	$(Q)$(LIBTOOL_COMPILE) $(call getdepopt,$@) $(KM_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS) -c -o $@ $(PARTS)
 
 $(addprefix $(OUTDIR),$(filter %.la,$(ALL_LIBS))):
 	$(call printcmd,LD,$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(LIBTOOL_LINK) $(RPATH) $(KM_LDFLAGS) $(LDFLAGS) -o $@ $(filter-out %.cmd,$+) $(call getvar,$(@),LIBS)
+	$(Q)$(LIBTOOL_LINK) $(RPATH) $(KM_LDFLAGS) $(LDFLAGS) -o $@ $(PARTS) $(call getvar,$(@),LIBS)
 
 $(addprefix $(OUTDIR),$(filter %.a,$(ALL_LIBS))):
 	$(call printcmd,AR,$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(AR) rcs $@ $(filter-out %.cmd,$+)
+	$(Q)$(AR) rcs $@ $(PARTS)
 
 $(addprefix $(OUTDIR),$(ALL_PROGS) $(ALL_TESTS)):
 	$(call printcmd,LD,$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(if $(filter %.la %.lo,$+),$(LIBTOOL_LINK),$(LINK)) $(KM_LDFLAGS) $(LDFLAGS) -o $@ $(filter-out %.cmd,$+) $(call getvar,$(@),LIBS)
+	$(Q)$(if $(filter %.la %.lo,$+),$(LIBTOOL_LINK),$(LINK)) $(KM_LDFLAGS) $(LDFLAGS) -o $@ $(PARTS) $(call getvar,$(@),LIBS)
 
 .SUFFIXES: $(objexts) .mk .dep .cmd .oldcmd
 
