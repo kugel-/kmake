@@ -1,4 +1,4 @@
-bin-y       := c csh cxx candcxx
+bin-y       := c csh cxx candcxx cxxcc
 
 c-CFLAGS-y  := -O1
 
@@ -12,3 +12,6 @@ csh-DEPS-y  += a/y/liby.la
 cxx-y       := cxx.cpp
 
 candcxx-y   := cxx1.cpp c1.c
+
+cxxcc-y      := cc.cpp
+cxxcc-DEPS-y := s/libshl2.la
