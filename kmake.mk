@@ -14,7 +14,7 @@ QQ := @
 Q  := @
 endif
 
-# COMPILE and LINK are set in per-target rules
+# LTTAG, COMPILE and LINK are set in per-target rules
 CC              := $(CROSS_COMPILE)$(CC)
 CXX             := $(CROSS_COMPILE)$(CXX)
 AR              := $(CROSS_COMPILE)$(AR)
@@ -23,8 +23,8 @@ RM              ?= rm -f
 LIBTOOL         ?= libtool
 INSTALL_PROGRAM ?= install
 
-LIBTOOL_COMPILE  = $(LIBTOOL) $(if $(Q),--silent) --tag CC --mode=compile $(COMPILE)
-LIBTOOL_LINK     = $(LIBTOOL) $(if $(Q),--silent) --tag CC --mode=link $(LINK)
+LIBTOOL_COMPILE  = $(LIBTOOL) $(if $(Q),--silent) --tag $(LTTAG) --mode=compile $(COMPILE)
+LIBTOOL_LINK     = $(LIBTOOL) $(if $(Q),--silent) --tag $(LTTAG) --mode=link $(LINK)
 LIBTOOL_RM       = $(LIBTOOL) $(if $(Q),--silent) --mode=clean $(RM)
 LIBTOOL_INSTALL  = $(LIBTOOL) $(if $(Q),--silent) --mode=install $(INSTALL_PROGRAM)
 
@@ -217,6 +217,7 @@ $(OUTDIR)$(1): KM_CFLAGS   := $(KM_CFLAGS)   $(KM_CFLAGS_$(if $(call is_lib,$(3)
 $(OUTDIR)$(1): KM_CXXFLAGS := $(KM_CXXFLAGS) $(KM_CXXFLAGS_$(if $(call is_lib,$(3)),LIB,PROG)) $(call getvar,$(3),CXXFLAGS)
 $(OUTDIR)$(1): COMPILE_FLAGS = $(if $(call is_cxx,$(2)),$$(KM_CXXFLAGS) $$(CXXFLAGS),$$(KM_CFLAGS) $(CFLAGS))
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(2)),CXX,CC)
+$(OUTDIR)$(1): LTTAG = $(if $(call is_cxx,$(2)),CXX,CC)
 $(OUTDIR)$(1): COMPILE = $(call getcc,$(2))
 $(OUTDIR)$(1): CMD = $$(COMPILE) $$(KM_CPPFLAGS) $$(CPPFLAGS) $$(COMPILE_FLAGS)
 $(OUTDIR)$(1): PARTS = $(SRCDIR)$(2)
@@ -238,6 +239,8 @@ cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(call getcmdfile,$(1)))
 cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(call getoldcmdfile,$(1)))
 
 $(OUTDIR)$(1): KM_LDFLAGS := $(KM_LDFLAGS) $(KM_LDFLAGS_$(if $(call is_lib,$(1)),LIB,PROG)) $(call getvar,$(1),LDFLAGS)
+$(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(call getsrc,$(1))),CXXLD,CCLD)
+$(OUTDIR)$(1): LTTAG = $(if $(call is_cxx,$(call getsrc,$(1))),CXX,CC)
 $(OUTDIR)$(1): LINK = $(call getcc,$(call getsrc,$(1)))
 $(OUTDIR)$(1): CMD = $$(COMPILE) $$(RPATH) $$(KM_LDFLAGS) $$(LDFLAGS) -- $(call getvar,$(1),LIBS)
 $(OUTDIR)$(1): PARTS = $(addprefix $(OUTDIR),$(call getobj,$(1)))
@@ -394,7 +397,7 @@ $(all_lobj): $(OUTDIR)%.lo:
 	$(Q)$(LIBTOOL_COMPILE) $(call getdepopt,$@) $(KM_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS) -c -o $@ $(PARTS)
 
 $(addprefix $(OUTDIR),$(filter %.la,$(ALL_LIBS))):
-	$(call printcmd,LD,$@)
+	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(LIBTOOL_LINK) $(RPATH) $(KM_LDFLAGS) $(LDFLAGS) -o $@ $(PARTS) $(call getvar,$(@),LIBS)
 
@@ -404,7 +407,7 @@ $(addprefix $(OUTDIR),$(filter %.a,$(ALL_LIBS))):
 	$(Q)$(AR) rcs $@ $(PARTS)
 
 $(addprefix $(OUTDIR),$(ALL_PROGS) $(ALL_TESTS)):
-	$(call printcmd,LD,$@)
+	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(if $(filter %.la %.lo,$+),$(LIBTOOL_LINK),$(LINK)) $(KM_LDFLAGS) $(LDFLAGS) -o $@ $(PARTS) $(call getvar,$(@),LIBS)
 
