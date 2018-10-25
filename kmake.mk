@@ -33,37 +33,25 @@ DEFAULT_DRIVER  ?= "sh -c"
 
 STRIPWD         ?=
 
-ifneq ($(S),)
-SRCDIR := $(S)
-endif
+# adds a traling slash to $(1), unless it already ends with a slash
+ensure_slash     = $(or $(filter %/,$(1)),$(1)/)
 
-ifneq ($(SRCDIR),)
-SRCDIR := $(SRCDIR)/
+ifneq ($(S),)
+SRCDIR := $(call ensure_slash,$(S))
 endif
 
 ifneq ($(O),)
-OUTDIR := $(O)
-endif
-
-ifneq ($(OUTDIR),)
-OUTDIR := $(OUTDIR)/
+OUTDIR := $(call ensure_slash,$(O))
 endif
 
 ifneq ($(M),)
-PARTDIR := $(M)
-endif
-
-ifneq ($(PARTDIR),)
-PARTDIR := $(PARTDIR)/
+PARTDIR := $(call ensure_slash,$(M))
 endif
 
 KMAKEDIR := $(dir $(lastword $(MAKEFILE_LIST)))
 ifeq ($(KMAKEDIR),.)
 KMAKEDIR :=
 endif
-
-empty :=
-space := $(empty) $(empty)
 
 define clearvar
 $(1)-y :=
@@ -82,11 +70,12 @@ endef
 
 subdir-y      ?= .
 prefix        ?= /usr/local/
-bindir        ?= $(prefix)bin
-sbindir       ?= $(prefix)sbin
-libdir        ?= $(prefix)lib
-datadir       ?= $(prefix)share
-sysconfdir    ?= $(prefix)etc
+prefix_s      := $(call ensure_slash,$(prefix))
+bindir        ?= $(prefix_s)bin
+sbindir       ?= $(prefix_s)sbin
+libdir        ?= $(prefix_s)lib
+datadir       ?= $(prefix_s)share
+sysconfdir    ?= $(prefix_s)etc
 
 prog_vars     := bin sbin
 prog_vars     += $(extra-progs)
