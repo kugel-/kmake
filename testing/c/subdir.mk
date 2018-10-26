@@ -1,17 +1,23 @@
-bin-y       := c csh cxx candcxx cxxcc
+bin-y           := c clc csh cxx candcxx cxxcc
 
-c-CFLAGS-y  := -O1
+c-CFLAGS-y      := -O1
 
-c-y         := c.c
-c-DEPS-y    := a/liba.a
+c-y             := c.c
+c-DEPS-y        := a/liba.a
 
-csh-DEPS-y  := s/libshl.la
-csh-DEPS-y  += s/libshl2.la
-csh-DEPS-y  += a/y/liby.la
+clc-y           := c.c
+clc-CPPFLAGS-y  := -DREQUIRE_CLANG
+clc-compiler    := clang
+clc-DEPS-y      := a/liba.a
 
-cxx-y       := cxx.cpp
+csh-DEPS-y      := s/libshl.la
+csh-DEPS-y      += s/libshl2.la
+csh-DEPS-y      += a/y/liby.la
 
-candcxx-y   := cxx1.cpp c1.c
+cxx-y           := cxx.cpp
 
-cxxcc-y      := cc.cpp
-cxxcc-DEPS-y := s/libshl2.la
+candcxx-y       := cxx1.cpp c1.c
+
+cxxcc-y         := cc.cpp
+cxxcc-compiler  := $(CC)
+cxxcc-DEPS-y    := s/libshl2.la

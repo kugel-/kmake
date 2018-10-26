@@ -208,8 +208,9 @@ can be override suffixes with specific values.
 
 Pre-defined properties include:
 
-`-suffix`
-    The suffix that is used to find the default source file
+`-compiler`
+    The compiler program to use to build the targets, for example
+    to use clang on a per-var basis.
 
 `-dir`
     The installation directory used at `make install` time.
@@ -217,6 +218,8 @@ Pre-defined properties include:
 `-driver`
     The command that is used to run test targets
 
+`-suffix`
+    The suffix that is used to find the default source file
 
 As you might see, not all properties make sense on all targets and therefore
 some suffixes are simply ignored on some targets.

@@ -90,6 +90,8 @@ flag_names    := CPPFLAGS CFLAGS CXXFLAGS LDFLAGS
 flag_names    += $(extra-flags)
 aflag_names   := DEPS LIBS
 aflag_names   += $(extra-append-flags)
+prop_names    := dir suffix driver compiler
+prop_names    += $(extra-properties)
 
 bin-dir       := $(bindir)
 bin-suffix    := $(DEFAULT_SUFFIX)
@@ -148,8 +150,9 @@ getobj = $(strip $(foreach src,$(call getsrc,$(1)),$(call getobjfile,$(src),$(1)
 is_cxx = $(filter %.cpp,$(1))
 # call with $(1) = target (incl. extension)
 is_lib = $(filter %.la %.a,$(1))
-# call with $(1) = list of source files, returns CXX if one or more C++ files are found, else CC
-getcc = $(if $(call is_cxx,$(1)),$(CXX),$(CC))
+# call with $(1) = list of source files, $(2) = target (incl. extension)
+# returns CXX if one or more C++ files are found, else CC
+getcc = $(or $($(call varname,$(2))-compiler),$(if $(call is_cxx,$(1)),$(CXX),$(CC)))
 # call with $(1) = target (incl. extension)
 getdepsdir = $(dir $(1)).deps/
 # call with $(1) = target (incl. extension)
@@ -207,7 +210,7 @@ $(OUTDIR)$(1): KM_CXXFLAGS := $(KM_CXXFLAGS) $(KM_CXXFLAGS_$(if $(call is_lib,$(
 $(OUTDIR)$(1): COMPILE_FLAGS = $(if $(call is_cxx,$(2)),$$(KM_CXXFLAGS) $$(CXXFLAGS),$$(KM_CFLAGS) $(CFLAGS))
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(2)),CXX,CC)
 $(OUTDIR)$(1): LTTAG = $(if $(call is_cxx,$(2)),CXX,CC)
-$(OUTDIR)$(1): COMPILE = $(call getcc,$(2))
+$(OUTDIR)$(1): COMPILE = $(call getcc,$(2),$(3))
 $(OUTDIR)$(1): CMD = $$(COMPILE) $$(KM_CPPFLAGS) $$(CPPFLAGS) $$(COMPILE_FLAGS)
 $(OUTDIR)$(1): PARTS = $(SRCDIR)$(2)
 $(OUTDIR)$(1): $(SRCDIR)$(2)
@@ -230,7 +233,7 @@ cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(call getoldcmdfile,$(1)))
 $(OUTDIR)$(1): KM_LDFLAGS := $(KM_LDFLAGS) $(KM_LDFLAGS_$(if $(call is_lib,$(1)),LIB,PROG)) $(call getvar,$(1),LDFLAGS)
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(call getsrc,$(1))),CXXLD,CCLD)
 $(OUTDIR)$(1): LTTAG = $(if $(call is_cxx,$(call getsrc,$(1))),CXX,CC)
-$(OUTDIR)$(1): LINK = $(call getcc,$(call getsrc,$(1)))
+$(OUTDIR)$(1): LINK = $(call getcc,$(call getsrc,$(1)),$(1))
 $(OUTDIR)$(1): CMD = $$(COMPILE) $$(RPATH) $$(KM_LDFLAGS) $$(LDFLAGS) -- $(call getvar,$(1),LIBS)
 $(OUTDIR)$(1): PARTS = $(addprefix $(OUTDIR),$(call getobj,$(1)))
 $(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getobj,$(1)))
