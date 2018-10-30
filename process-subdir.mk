@@ -21,11 +21,6 @@ $(foreach v,$(prog_vars) $(lib_vars) $(data_vars) $(gen_vars) $(test_vars) clean
 $(foreach v,$(prog_vars) $(lib_vars) $(data_vars),\
 	$(if $($(v)-dir),,$(error Must specify $(v)-dir in $(srcdir)subdir.mk)))
 
-# inherit $t-$property from vars unless explicitly set
-$(foreach s,$(prop_names),\
-	$(foreach v,$(gen_vars) $(test_vars) $(prog_vars) $(lib_vars) $(data_vars),\
-		$(foreach t,$($(v)-y),$(if $($(v)-$(s)),$(eval $(t)-$(s) ?= $($(v)-$(s)))))))
-
 # prepends CFLAGS-y to $(bin)-CFLAGS-y (and friends)
 $(foreach flag,$(flag_names),\
 	$(foreach v,$(prog_vars) $(lib_vars) $(gen_vars) $(test_vars),\

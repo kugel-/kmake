@@ -263,7 +263,12 @@ $(call $(1)_recipe,$(all_$(1)))
 $(if $(OUTDIR),vpath $(all_$(1)) $(OUTDIR))
 endef
 
+define inherit_props
+$(foreach t,$(all_$(1)),$(foreach s,$(prop_names),$(if $($(1)-$(s)),$(call varname,$(t))-$(s) ?= $($(1)-$(s))$(newline))))
+endef
+
 $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
+$(foreach v,$(gen_vars) $(test_vars) $(prog_vars) $(lib_vars) $(data_vars),$(eval $(call inherit_props,$(v))))
 $(foreach prog,$(ALL_LIBS) $(ALL_PROGS) $(ALL_TESTS),$(eval $(call prog_rule,$(prog))))
 $(foreach test,$(ALL_TESTS),$(eval $(call test_rule,$(test))))
 $(foreach v,$(gen_vars),$(eval $(call gen_rule,$(v))))
