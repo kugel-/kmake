@@ -130,8 +130,9 @@ varname = $(foreach x,$(1),$(notdir $(x)))
 prefixtarget = $(call addpath,$(1),$(2)-$(basename $(call varname,$(1))))
 
 getvar = $($(call varname,$(1))$(if $(2),-$(2))-y)
+getprop = $($(call varname,$(1))-$(2))
 # call with $(1) = target (incl. extension)
-getdefsrc = $(if $($(call varname,$(1))-suffix),$(basename $(call varname,$(1)))$($(call varname,$(1))-suffix))
+getdefsrc = $(if $(call getprop,$(1),suffix),$(basename $(call varname,$(1)))$(call getprop,$(1),suffix))
 # call with $(1) = target (incl. extension)
 getsrc = $(strip $(call addpath,$(1),$(or $(filter-out $(objpats),$(call getvar,$(1))),$(call getdefsrc,$(1)))) $(filter-out $(objpats),$(call getvar,$(1),DEPS)))
 # call with $(1) = target (incl. extension)
@@ -220,7 +221,7 @@ $(if $(OUTDIR),vpath $(1) $(OUTDIR))
 endef
 
 define rpath_rule
-$(OUTDIR)$(1): RPATH = $(if $(filter %.la,$(1)),-rpath $(2))
+$(OUTDIR)$(1): RPATH = $(if $(filter %.la,$(1)),-rpath $(call getprop,$(1),dir))
 endef
 
 define prog_rule
@@ -272,7 +273,7 @@ $(foreach v,$(gen_vars) $(test_vars) $(prog_vars) $(lib_vars) $(data_vars),$(eva
 $(foreach prog,$(ALL_LIBS) $(ALL_PROGS) $(ALL_TESTS),$(eval $(call prog_rule,$(prog))))
 $(foreach test,$(ALL_TESTS),$(eval $(call test_rule,$(test))))
 $(foreach v,$(gen_vars),$(eval $(call gen_rule,$(v))))
-$(foreach v,$(lib_vars),$(foreach lib,$(all_$(v)),$(eval $(call rpath_rule,$(lib),$($(v)-dir)))))
+$(foreach lib,$(ALL_LIBS),$(eval $(call rpath_rule,$(lib))))
 
 changedir = $(if $(OUTDIR),cd $(OUTDIR))
 stripwd = $(if $(STRIPWD),$(patsubst $(OUTDIR)%,%,$(1)),$(1))
@@ -336,27 +337,35 @@ km-install: install-libs install-progs install-data
 km-install-strip: LIBTOOL_INSTALL += $(STRIPOPT)
 km-install-strip: install
 
+# Installation dir is given by the -dir property. But, being a property,
+# it can be overridden per target. We must respect a potentially disparate
+# installation dir, falling back to installing targets individually, if this
+# is detected. Normally all targets of a var can be installed at once.
+install_all = mkdir -p $(DESTDIR)$(2);$(LIBTOOL_INSTALL) $(1) $(DESTDIR)$(2)
+install_one = $(foreach t,$(1),mkdir -p $(DESTDIR)$(or $(call getprop,$(t),dir),$(error $(t)-dir must be specified)); $(LIBTOOL_INSTALL) $(t) $(DESTDIR)$(call getprop,$(t),dir);)
+install_none =
+
+get_n_dirs = $(words $(sort $(foreach t,$(1),$(or $(call getprop,$(t),dir),x))))
+get_install = install_$(if $(1),$(or $(word $(call get_n_dirs,$(1)),all),one),none)
+
 $(addprefix install-lib-,$(lib_vars)): install-lib-%: FORCE
 	$(eval LA_LIBS := $(filter %.la,$(addprefix $(OUTDIR),$(all_$*))))
 	$(if $(LA_LIBS),$(call printcmd,INSTALL,$(LA_LIBS)))
-	$(AT)mkdir -p $(DESTDIR)$($*-dir)
-	$(Q)$(if $(LA_LIBS),$(LIBTOOL_INSTALL) $(LA_LIBS) $(DESTDIR)$($*-dir))
+	$(Q)$(call $(call get_install,$(LA_LIBS)),$(LA_LIBS),$($*-dir))
 
 install-libs: STRIPOPT = -s
 install-libs: $(addprefix install-lib-,$(lib_vars))
 
 $(addprefix install-prog-,$(prog_vars)): install-prog-%: FORCE
 	$(if $(all_$*),$(call printcmd,INSTALL,$(addprefix $(OUTDIR),$(all_$*))))
-	$(AT)mkdir -p $(DESTDIR)$($*-dir)
-	$(if $(all_$*),$(Q)$(LIBTOOL_INSTALL) $(addprefix $(OUTDIR),$(all_$*)) $(DESTDIR)$($*-dir))
+	$(Q)$(call $(call get_install,$(all_$*)),$(addprefix $(OUTDIR),$(all_$*)),$($*-dir))
 
 install-progs: STRIPOPT = -s --strip-program=$(STRIP)
 install-progs: $(addprefix install-prog-,$(prog_vars))
 
 $(addprefix install-data-,$(data_vars)): install-data-%: FORCE
 	$(if $(all_$*),$(call printcmd,INSTALL,$(addprefix $(SRCDIR),$(all_$*))))
-	$(AT)mkdir -p $(DESTDIR)$($*-dir)
-	$(if $(all_$*),$(Q)$(INSTALL_PROGRAM) -D -t $(DESTDIR)$($*-dir) $(addprefix $(SRCDIR),$(all_$*)))
+	$(Q)$(call $(call get_install,$(all_$*)),$(addprefix $(SRCDIR),$(all_$*)),$($*-dir))
 
 install-data: $(addprefix install-data-,$(data_vars))
 
