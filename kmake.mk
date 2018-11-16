@@ -287,7 +287,7 @@ sub_targets = all clean install install-strip
 .PHONY: km-all km-clean km-check km-install km-install-strip
 
 run-test-%:
-	$(Q)driver=$($(call varname,$*)-driver); $$driver $(KM_CHECKFLAGS) $<; \
+	$(Q)driver=$($(call varname,$*)-driver); $$driver $< $(KM_CHECKFLAGS) ; \
 	if [ $$? = 0 ]; then echo PASS: $<; else echo FAIL: $<; fi
 
 # PARTDIR restricts the selected targets to a given directory (partial build)
