@@ -77,9 +77,9 @@ libdir        ?= $(prefix_s)lib
 datadir       ?= $(prefix_s)share
 sysconfdir    ?= $(prefix_s)etc
 
-prog_vars     := bin sbin
+prog_vars     := bin sbin noinstprogs
 prog_vars     += $(extra-progs)
-lib_vars      := libs
+lib_vars      := libs noinstlibs
 lib_vars      += $(extra-libs)
 data_vars     := data sysconf
 data_vars     += $(extra-data)
@@ -104,6 +104,10 @@ sysconf-dir   := $(sysconfdir)
 tests-suffix  := $(DEFAULT_SUFFIX)
 tests-driver  := $(DEFAULT_DRIVER)
 testscripts-driver  := $(DEFAULT_DRIVER)
+noinstprogs-dir     := noinst
+noinstprogs-suffix  := $(DEFAULT_SUFFIX)
+noinstlibs-dir      := noinst
+noinstlibs-suffix   := $(DEFAULT_SUFFIX)
 
 KM_CPPFLAGS ?= -I. $(if $(SRCDIR),-I$(SRCDIR))
 KM_CFLAGS   ?= -O2 -g
@@ -221,7 +225,8 @@ $(if $(OUTDIR),vpath $(1) $(OUTDIR))
 endef
 
 define rpath_rule
-$(OUTDIR)$(1): RPATH = $(if $(filter %.la,$(1)),-rpath $(call getprop,$(1),dir))
+# carefully avoid -rpath for static libraries or libtool convinience libraries
+$(OUTDIR)$(1): RPATH = $(and $(filter %.la,$(1)),$(filter-out noinst,$(call getprop,$(1),dir)),-rpath $(call getprop,$(1),dir))
 endef
 
 define prog_rule
@@ -347,9 +352,10 @@ install_none =
 
 get_n_dirs = $(words $(sort $(foreach t,$(1),$(or $(call getprop,$(t),dir),x))))
 get_install = install_$(if $(1),$(or $(word $(call get_n_dirs,$(1)),all),one),none)
+filter_noinst = $(foreach t,$(1),$(if $(filter-out noinst,$(call getprop,$(t),dir)),$(t)))
 
 $(addprefix install-lib-,$(lib_vars)): install-lib-%: FORCE
-	$(eval LA_LIBS := $(filter %.la,$(addprefix $(OUTDIR),$(all_$*))))
+	$(eval LA_LIBS := $(filter %.la,$(addprefix $(OUTDIR),$(filter_noinst,$(all_$*)))))
 	$(if $(LA_LIBS),$(call printcmd,INSTALL,$(LA_LIBS)))
 	$(Q)$(call $(call get_install,$(LA_LIBS)),$(LA_LIBS),$($*-dir))
 
@@ -357,8 +363,9 @@ install-libs: STRIPOPT = -s
 install-libs: $(addprefix install-lib-,$(lib_vars))
 
 $(addprefix install-prog-,$(prog_vars)): install-prog-%: FORCE
-	$(if $(all_$*),$(call printcmd,INSTALL,$(addprefix $(OUTDIR),$(all_$*))))
-	$(Q)$(call $(call get_install,$(all_$*)),$(addprefix $(OUTDIR),$(all_$*)),$($*-dir))
+	$(eval PROGS := $(addprefix $(OUTDIR),$(filter_noinst,$(all_$*))))
+	$(if $(PROGS),$(call printcmd,INSTALL,$(PROGS)))
+	$(Q)$(call $(call get_install,$(PROGS)),$(PROGS),$($*-dir))
 
 install-progs: STRIPOPT = -s --strip-program=$(STRIP)
 install-progs: $(addprefix install-prog-,$(prog_vars))
