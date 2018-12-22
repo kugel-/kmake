@@ -21,6 +21,10 @@ $(foreach v,$(prog_vars) $(lib_vars) $(data_vars) $(gen_vars) $(test_vars) clean
 $(foreach v,$(prog_vars) $(lib_vars) $(data_vars),\
 	$(if $($(v)-dir),,$(error Must specify $(v)-dir in $(srcdir)subdir.mk)))
 
+# as a special case, prepend this directory to the include path of all libs
+# and programs compiled here. Must be done by appending CPPFLAGS-y
+CPPFLAGS-y  := -I$(OUTDIR)$(srcdir) -I$(SRCDIR)$(srcdir) $(CPPFLAGS-y)
+
 # prepends CFLAGS-y to $(bin)-CFLAGS-y (and friends)
 $(foreach flag,$(flag_names),\
 	$(foreach v,$(prog_vars) $(lib_vars) $(gen_vars) $(test_vars),\
