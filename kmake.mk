@@ -119,6 +119,9 @@ objdir := $(OUTDIR)$$(srcdir)
 include $(KMAKEDIR)process-subdir.mk
 endef
 
+# cpp and hdr lists based on Automake
+cppexts := .c++ .cc .cpp .cxx .C
+cpppats := $(addprefix %,$(cppexts))
 objexts := .la .a .lo .o
 objpats := $(addprefix %,$(objexts))
 
@@ -154,7 +157,7 @@ getobjfile = $(call getobjbase,$(1),$(call varname,$(2))).$(call getobjext,$(2))
 # assumed the target already exists (allows to place scripts in $foo-y)
 getobj = $(strip $(foreach src,$(call getsrc,$(1)),$(call getobjfile,$(src),$(1))) $(call getdeps,$(1)))
 # call with $(1) = list of source files
-is_cxx = $(filter %.cpp,$(1))
+is_cxx = $(filter $(cpppats),$(1))
 # call with $(1) = target (incl. extension)
 is_lib = $(filter %.la %.a,$(1))
 # call with $(1) = list of source files, $(2) = target (incl. extension)
