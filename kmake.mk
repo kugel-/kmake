@@ -122,6 +122,8 @@ endef
 # cpp and hdr lists based on Automake
 cppexts := .c++ .cc .cpp .cxx .C
 cpppats := $(addprefix %,$(cppexts))
+hdrexts := .h .H .hxx .h++ .hh .hpp .inc
+hdrpats := $(addprefix %,$(hdrexts))
 objexts := .la .a .lo .o
 objpats := $(addprefix %,$(objexts))
 
@@ -145,6 +147,8 @@ getysrc = $(call addpath,$(1),$(or $(filter-out $(objpats),$(call getvar,$(1))),
 # call with $(1) = target (incl. extension)
 getsrc = $(strip $(call getysrc,$(1)) $(filter-out $(objpats),$(call getvar,$(1),DEPS)))
 # call with $(1) = target (incl. extension)
+getsrc_c = $(strip $(filter-out $(hdrpats),$(call getsrc,$(1))))
+# call with $(1) = target (incl. extension)
 getdeps = $(call addpath,$(1),$(filter $(objpats),$(call getvar,$(1)))) $(filter $(objpats),$(call getvar,$(1),DEPS))
 # call with $(1) = target (incl. extension)
 getobjext = $(if $(filter %.la,$(1)),lo,o)
@@ -155,7 +159,7 @@ getobjfile = $(call getobjbase,$(1),$(call varname,$(2))).$(call getobjext,$(2))
 # call with $(1) = target (incl. extension)
 # Note this is returns empty if the target has no source files, since it is
 # assumed the target already exists (allows to place scripts in $foo-y)
-getobj = $(strip $(foreach src,$(call getsrc,$(1)),$(call getobjfile,$(src),$(1))) $(call getdeps,$(1)))
+getobj = $(strip $(foreach src,$(call getsrc_c,$(1)),$(call getobjfile,$(src),$(1))) $(call getdeps,$(1)))
 # call with $(1) = list of source files
 is_cxx = $(filter $(cpppats),$(1))
 # call with $(1) = target (incl. extension)
@@ -254,7 +258,7 @@ $(if $(OUTDIR),vpath $(1) $(OUTDIR))
 
 $(call varname,$(1))-obj += $(call getobj,$(1))
 
-$(foreach f,$(call getsrc,$(1)),$(call obj_rule,$(call getobjfile,$(f),$(1)),$(f),$(1))$(newline))
+$(foreach f,$(call getsrc_c,$(1)),$(call obj_rule,$(call getobjfile,$(f),$(1)),$(f),$(1))$(newline))
 endef
 
 define test_rule
