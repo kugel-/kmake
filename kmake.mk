@@ -149,7 +149,11 @@ getsrc = $(strip $(call getysrc,$(1)) $(filter-out $(objpats),$(call getvar,$(1)
 # call with $(1) = target (incl. extension)
 getsrc_c = $(strip $(filter-out $(hdrpats),$(call getsrc,$(1))))
 # call with $(1) = target (incl. extension)
-getdeps = $(call addpath,$(1),$(filter $(objpats),$(call getvar,$(1)))) $(filter $(objpats),$(call getvar,$(1),DEPS))
+getdeps = $(call addpath,$(1),$(call getvar,$(1))) $(call getvar,$(1),DEPS)
+# call with $(1) = target (incl. extension)
+getobjdeps = $(filter $(objpats),$(call getdeps,$(1)))
+# call with $(1) = target (incl. extension)
+gethdrdeps = $(filter $(hdrpats),$(call getdeps,$(1)))
 # call with $(1) = target (incl. extension)
 getobjext = $(if $(filter %.la,$(1)),lo,o)
 # call with $(1) = single src file, $(2) = target varname
@@ -159,7 +163,7 @@ getobjfile = $(call getobjbase,$(1),$(call varname,$(2))).$(call getobjext,$(2))
 # call with $(1) = target (incl. extension)
 # Note this is returns empty if the target has no source files, since it is
 # assumed the target already exists (allows to place scripts in $foo-y)
-getobj = $(strip $(foreach src,$(call getsrc_c,$(1)),$(call getobjfile,$(src),$(1))) $(call getdeps,$(1)))
+getobj = $(strip $(foreach src,$(call getsrc_c,$(1)),$(call getobjfile,$(src),$(1))) $(call getobjdeps,$(1)))
 # call with $(1) = list of source files
 is_cxx = $(filter $(cpppats),$(1))
 # call with $(1) = target (incl. extension)
@@ -208,6 +212,10 @@ define newline =
 
 endef
 
+define setvpath
+$(if $(2),$(foreach f,$(1),vpath $(f) $(2)$(newline)))
+endef
+
 # Call with $1: object file, $2: src file, $3: target that $1 is part of
 define obj_rule
 cleanfiles += $(OUTDIR)$(1)
@@ -229,8 +237,11 @@ $(OUTDIR)$(1): CMD = $$(COMPILE) $$(KM_CPPFLAGS) $$(CPPFLAGS) $$(COMPILE_FLAGS)
 $(OUTDIR)$(1): PARTS = $(SRCDIR)$(2)
 $(OUTDIR)$(1): $(SRCDIR)$(2)
 $(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
+# avoid a normal dependency for headers, those come through .dep files
+# but ensure generated headers are generated first
+$(OUTDIR)$(1): | $(call gethdrdeps,$(3))
 
-$(if $(OUTDIR),vpath $(1) $(OUTDIR))
+$(call setvpath,$(1),$(OUTDIR))
 endef
 
 define rpath_rule
@@ -254,7 +265,7 @@ $(OUTDIR)$(1): PARTS = $(addprefix $(OUTDIR),$(call getobj,$(1)))
 $(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getobj,$(1)))
 $(OUTDIR)$(1): $(if $(call getobj,$(1)),$(OUTDIR)$(call getcmdfile,$(1)))
 
-$(if $(OUTDIR),vpath $(1) $(OUTDIR))
+$(call setvpath,$(1) $(call gethdrdeps,$(1)),$(OUTDIR))
 
 $(call varname,$(1))-obj += $(call getobj,$(1))
 
@@ -275,7 +286,7 @@ $(foreach f,$(all_$(1)),$(call $(1)_rule,$(f))$(newline))
 
 $(call $(1)_recipe,$(all_$(1)))
 
-$(if $(OUTDIR),vpath $(all_$(1)) $(OUTDIR))
+$(call setvpath,$(all_$(1)),$(OUTDIR))
 endef
 
 define inherit_props
