@@ -318,9 +318,11 @@ arbitrarily, for example to pre- and post-process files with sed.
 Please note that the generators are not executed unless the output file
 is a prerequsite of some other target or is to be installed itself.
 
-kmake ships two generators (for calling sed and cat) but these are not enabled
-by default. They are enabled by including the files `gen-sed.mk` and
-`gen-cat.mk` respectively.
+kmake ships two real generators (for calling sed and cat) which these are not
+enabled by default. They are enabled by including the files `gen-sed.mk` and
+`gen-cat.mk` respectively. A third generator, called byproduct, helps
+specifying dependencies for generator programs with multiple output files.
+This one is enabled by default.
 
 gen-sed
   The sed generator allows you to feed a file into sed in order to generate
@@ -359,6 +361,29 @@ gen-cat
   The output file is generated as needed: if it doesn't exist or any
   of its input files is newer.
 
+gen-byproduct
+  The byproduct pseudo generator helps managing dependencies for programs
+  that produce multiple output files. Because GNU make provides no universal
+  facility to manage those (except pattern rules which require uniform names
+  of all output files) this may be needed for race-free builds.
+
+  Example::
+
+    # mygen is an imaginary program that produces foo.c and bar.h
+    bin-y            := program
+    program-y        := foo.c baz.c bar.h
+    mygen-y          := foo.c
+    byproduct-y      := bar.h
+    bar.h-y          := foo.c
+
+  As you can see, by listing bar.h in byproduct-y, kmake becomes aware
+  the file is generated as well (setting vpath if necessary among other things).
+
+  Additionally, by listing foo.c in bar.h-y, kmake will emit a rule (without
+  recipe) so that bar.h can be build explicitly as well, by generating foo.c.
+  This is especially useful if bar.h was to be included in other C files.
+  In this example, by listing bar.h in program-y, kmake can ensure
+  that bar.h will exist before any object of program is build.
 
 You can see that generators are quite powerful. In fact, they make kmake truly
 extensible since generators can be dynamically added to kmake if a project has

@@ -85,7 +85,8 @@ data_vars     := data sysconf
 data_vars     += $(extra-data)
 test_vars     := tests testscripts
 test_vars     += $(extra-tests)
-gen_vars      := $(extra-gen)
+gen_vars      := byproduct
+gen_vars      += $(extra-gen)
 flag_names    := CPPFLAGS CFLAGS CXXFLAGS LDFLAGS
 flag_names    += $(extra-flags)
 aflag_names   := DEPS LIBS
@@ -275,6 +276,12 @@ endef
 define test_rule
 run-test-$(call varname,$(1)): $(1)
 run-test-$(call varname,$(1)): FORCE
+endef
+
+define byproduct_rule
+$(OUTDIR)$(1): $(call getsrc,$(1))
+endef
+define byproduct_recipe
 endef
 
 define gen_rule
