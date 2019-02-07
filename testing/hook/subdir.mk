@@ -1,6 +1,9 @@
 HOOK_FILE := $(objdir)file
 
+generated-y := file
+
 $(HOOK_FILE):
+	@mkdir -p $(@D)
 	touch $@
 
 $(all-hook): $(HOOK_FILE)
