@@ -23,7 +23,7 @@ $(foreach v,$(prog_vars) $(lib_vars) $(data_vars),\
 
 # as a special case, prepend this directory to the include path of all libs
 # and programs compiled here. Must be done by appending CPPFLAGS-y
-CPPFLAGS-y  := -I$(OUTDIR)$(srcdir) -I$(SRCDIR)$(srcdir) $(CPPFLAGS-y)
+CPPFLAGS-y  := -I$(or $(OUTDIR)$(srcdir),.) -I$(or $(SRCDIR)$(srcdir),.) $(CPPFLAGS-y)
 
 # prepends CFLAGS-y to $(bin)-CFLAGS-y (and friends)
 $(foreach flag,$(flag_names),\
