@@ -236,7 +236,7 @@ $(OUTDIR)$(1): LTTAG = $(if $(call is_cxx,$(2)),CXX,CC)
 $(OUTDIR)$(1): COMPILE = $(call getcc,$(2),$(3))
 $(OUTDIR)$(1): CMD = $$(COMPILE) $$(KM_CPPFLAGS) $$(CPPFLAGS) $$(COMPILE_FLAGS)
 $(OUTDIR)$(1): PATTERN = %$(suffix $(2))
-$(OUTDIR)$(1): $(SRCDIR)$(2)
+$(OUTDIR)$(1): $(2)
 $(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
 # avoid a normal dependency for headers, those come through .dep files
 # but ensure generated headers are generated first
@@ -263,7 +263,7 @@ $(OUTDIR)$(1): LTTAG = $(if $(call is_cxx,$(call getsrc,$(1))),CXX,CC)
 $(OUTDIR)$(1): LINK = $(call getcc,$(call getsrc,$(1)),$(1))
 $(OUTDIR)$(1): CMD = $$(COMPILE) $$(RPATH) $$(KM_LDFLAGS) $$(LDFLAGS) -- $(call getvar,$(1),LIBS)
 $(OUTDIR)$(1): PATTERN = $(addprefix %,$(sort $(suffix $(call getobj,$(1)))))
-$(OUTDIR)$(1): $(addprefix $(OUTDIR),$(call getobj,$(1)))
+$(OUTDIR)$(1): $(call getobj,$(1))
 $(OUTDIR)$(1): $(if $(call getobj,$(1)),$(OUTDIR)$(call getcmdfile,$(1)))
 
 $(call setvpath,$(1) $(call gethdrdeps,$(1)),$(OUTDIR))
