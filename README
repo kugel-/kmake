@@ -212,6 +212,12 @@ Pre-defined properties include:
     The compiler program to use to build the targets, for example
     to use clang on a per-var basis.
 
+`-libtooltag`
+    When libtool is used to build shared libraries, this property overrides
+    the tag that libtool uses. By default kmake passes CXX or CC depending
+    on the source files. Use this to enforce, for example, CC.
+    See https://www.gnu.org/software/libtool/manual/html_node/Tags.html.
+
 `-dir`
     The installation directory used at `make install` time.
 
