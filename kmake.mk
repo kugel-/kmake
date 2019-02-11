@@ -385,7 +385,7 @@ get_install = install_$(if $(1),$(or $(word $(call get_n_dirs,$(1)),all),one),no
 filter_noinst = $(foreach t,$(1),$(if $(filter-out noinst,$(call getprop,$(t),dir)),$(t)))
 
 $(addprefix install-lib-,$(lib_vars)): install-lib-%: FORCE
-	$(eval LA_LIBS := $(filter %.la,$(addprefix $(OUTDIR),$(filter_noinst,$(all_$*)))))
+	$(eval LA_LIBS := $(filter %.la,$(addprefix $(OUTDIR),$(call filter_noinst,$(all_$*)))))
 	$(if $(LA_LIBS),$(call printcmd,INSTALL,$(LA_LIBS)))
 	$(Q)$(call $(call get_install,$(LA_LIBS)),$(LA_LIBS),$($*-dir))
 
@@ -393,7 +393,7 @@ install-libs: STRIPOPT = -s
 install-libs: $(addprefix install-lib-,$(lib_vars))
 
 $(addprefix install-prog-,$(prog_vars)): install-prog-%: FORCE
-	$(eval PROGS := $(addprefix $(OUTDIR),$(filter_noinst,$(all_$*))))
+	$(eval PROGS := $(addprefix $(OUTDIR),$(call filter_noinst,$(all_$*))))
 	$(if $(PROGS),$(call printcmd,INSTALL,$(PROGS)))
 	$(Q)$(call $(call get_install,$(PROGS)),$(PROGS),$($*-dir))
 
