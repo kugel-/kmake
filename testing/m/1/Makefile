@@ -1,3 +1,3 @@
-.PHONY: all clean install install-strip
+.PHONY: all clean install install-strip dist distclean
 
-all clean install install-strip: ;
+all clean install install-strip dist distclean: ;

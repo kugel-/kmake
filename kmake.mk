@@ -48,10 +48,11 @@ ifneq ($(M),)
 PARTDIR := $(call ensure_slash,$(M))
 endif
 
-KMAKEDIR := $(dir $(lastword $(MAKEFILE_LIST)))
-ifeq ($(KMAKEDIR),.)
-KMAKEDIR :=
+ifneq ($(D),)
+DISTDIR := $(abspath $(D))
 endif
+
+KMAKEDIR := $(filter-out ./,$(dir $(lastword $(MAKEFILE_LIST))))
 
 define clearvar
 $(1)-y :=
@@ -61,7 +62,8 @@ endef
 define clearvars
 # clear each $xx-y
 $(foreach v,$(prog_vars) $(lib_vars) $(data_vars),$(call clearvar,$(v)))
-$(foreach v,$(test_vars) $(gen_vars) clean submake,$(call clearvar,$(v)))
+$(foreach v,$(test_vars) $(gen_vars),$(call clearvar,$(v)))
+$(foreach v,clean distclean dist nodist submake,$(call clearvar,$(v)))
 $(foreach v,$(flag_names) $(aflag_names),$(call clearvar,$(v)))
 extra-progs :=
 extra-libs :=
@@ -112,6 +114,17 @@ noinstprogs-suffix  := $(DEFAULT_SUFFIX)
 noinstlibs-dir      := noinst
 noinstlibs-suffix   := $(DEFAULT_SUFFIX)
 
+all_dist      := $(KMAKEDIR)kmake.mk $(KMAKEDIR)process-subdir.mk
+all_dist      += $(KMAKEDIR)gen-sed.mk $(KMAKEDIR)gen-cat.mk
+all_dist      += $(KMAKEDIR)README
+
+DISTDIR       ?= $(abspath $(or $(and $(PACKAGE_NAME),$(PACKAGE_VERSION),$(PACKAGE_NAME)-$(PACKAGE_VERSION)),dist-dir))
+ifneq ($(filter-out /%,$(DISTDIR)),)
+$(error DISTDIR must be absolute, actual is $(DISTDIR))
+endif
+DISTDIR       := $(call ensure_slash,$(DISTDIR))
+
+
 KM_CPPFLAGS ?= -I. $(if $(SRCDIR),-I$(SRCDIR))
 KM_CFLAGS   ?= -O2 -g
 KM_CXXFLAGS ?= -O2 -g
@@ -130,6 +143,8 @@ hdrpats := $(addprefix %,$(hdrexts))
 objexts := .la .a .lo .o
 objpats := $(addprefix %,$(objexts))
 
+# reverses the list in $(1), using recursion
+reverse = $(strip $(if $(word 2,$(1)),$(call reverse,$(wordlist 2,$(words $(1)),$(1)))) $(firstword $(1)))
 # prepend $(dir $(1)) to $(2), except if it's './' or $(2) is an absolute path
 addpath = $(patsubst $(dir $(1))/%,/%,$(addprefix $(filter-out ./,$(dir $(1))),$(2)))
 
@@ -316,12 +331,20 @@ changedir = $(if $(OUTDIR),cd $(OUTDIR))
 stripwd = $(if $(STRIPWD),$(patsubst $(OUTDIR)%,%,$(1)),$(1))
 printcmd = $(if $(Q),@printf "  %-8s%s\n" "$(1)" "$(call stripwd,$(2))")
 
-sub_targets = all clean install install-strip
+# usually kmake targets should complete before any recursive make call:
+# by definition kmake must have updated its targets before recursion
+# so that those sub-Makefiles can depeend on kmake-created files
+# However, the order reverses for clean targets because otherwise
+# kmake would already delete files while sub-Makefiles still need them
+sub_targets = all install install-strip dist
+sub_targets_pre = clean distclean
 
 .PHONY: FORCE all libs progs data generated check clean
+.PHONY: dist distclean
 .PHONY: install install-progs install-libs install-data install-strip
-.PHONY: submakes $(addprefix submakes-,$(sub_targets))
+.PHONY: submakes $(addprefix submakes-,$(sub_targets) $(sub_targets_pre))
 .PHONY: km-all km-clean km-check km-install km-install-strip
+.PHONY: km-dist km-distclean
 
 run-test-%:
 	$(Q)driver=$($(call varname,$*)-driver); name=$*; test=$<; $$driver $$test $(KM_CHECKFLAGS) ; \
@@ -339,26 +362,47 @@ submakes: submakes-all
 define submake_rule_dir
 submake-$(1)-$(2): TARGET = $(1)
 submake-$(1)-$(2): DIR = $(2)
-submake-$(1)-$(2): SUBMAKE = $$(dir $$(firstword $$(wildcard $(OUTDIR)$$(DIR)Makefile $$(DIR)Makefile)))
+submake-$(1)-$(2): SUBMAKE = $$(dir $$(or $$(wildcard $(OUTDIR)$$(DIR)Makefile),$$(DIR)Makefile))
+submake-$(1)-$(2): DDIR := $$(DISTDIR)$(2)
+
+ifeq ($(1),dist)
+$$(DISTDIR)$(2): ; $(Q)mkdir -p $$@
+
+submake-dist-$(2): | $$(DISTDIR)$(2)
+endif
+
+.PHONY: submake-$(1)-$(2)
+submake-$(1)-$(2):
+	$(call printcmd,MAKE,$$(SUBMAKE))
+	$(Q)$$(MAKE) -C $$(SUBMAKE) $$(TARGET) $(if $(filter dist,$(1)),DISTDIR=$$(DDIR))
+
 endef
 
+# all -> submakes-all -> submake-all-% -> km-all
+# (or all -> submakes-all -> km-all if all_submake is empty)
 define submake_rule
 .PHONY: submakes-$(1)
 $(1): submakes-$(1)
 submakes-$(1): $(or $(addprefix submake-$(1)-,$(filter $(PARTDIR)%,$(all_submake))),km-$(1))
+$(foreach d,$(all_submake),submake-$(1)-$(d): km-$(1)$(newline))
 
-ifneq ($(all_submake),)
 $(foreach d,$(all_submake),$(call submake_rule_dir,$(1),$(d))$(newline))
+endef
 
-.PHONY: $(addprefix submake-$(1)-,$(all_submake))
-$(addprefix submake-$(1)-,$(all_submake)): km-$(1)
-	$(call printcmd,MAKE,$$(SUBMAKE))
-	$(Q)$$(MAKE) -C $$(SUBMAKE) $$(TARGET)
-endif
+# clean -> km-clean -> submakes-clean -> reversed submake-clean-%
+# (or clean -> km-clean -> submakes-clean if all_submake is empty)
+define submake_rule_pre
+.PHONY: submakes-$(1)
+$(1): km-$(1)
+km-$(1): submakes-$(1)
+$(foreach d,$(call reverse,$(filter $(PARTDIR)%,$(all_submake))),submakes-$(1): submake-$(1)-$(d)$(newline))
+
+$(foreach d,$(all_submake),$(call submake_rule_dir,$(1),$(d))$(newline))
 endef
 
 # no $(newline) here!
 $(foreach t,$(sub_targets),$(eval $(call submake_rule,$(t))))
+$(foreach t,$(sub_targets_pre),$(eval $(call submake_rule_pre,$(t))))
 
 km-all: libs progs data
 
@@ -369,6 +413,10 @@ km-clean:
 	$(call printcmd,RM,$(filter-out %.dep %.cmd %.oldcmd,$(cleanfiles)) $(addprefix $(OUTDIR),$(all_clean)))
 	$(Q)$(LIBTOOL_RM) $(filter-out %.dep %.cmd %.oldcmd,$(cleanfiles)) $(addprefix $(OUTDIR),$(all_clean))
 	$(QQ)$(LIBTOOL_RM) $(filter %.dep %.cmd %.oldcmd,$(cleanfiles))
+
+km-distclean: km-clean
+	$(if $(all_distclean),$(call printcmd,RM,$(addprefix $(OUTDIR),$(all_distclean))))
+	$(Q)$(LIBTOOL_RM) $(addprefix $(OUTDIR),$(all_distclean))
 
 km-install: install-libs install-progs install-data
 km-install-strip: LIBTOOL_INSTALL += $(STRIPOPT)
@@ -459,6 +507,38 @@ $(addprefix $(OUTDIR),$(ALL_PROGS) $(ALL_TESTS)):
 	$(Q)$(if $(filter %.la %.lo,$+),$(LIBTOOL_LINK),$(LINK)) $(KM_LDFLAGS) $(LDFLAGS) -o $@ $(filter $(PATTERN),$+) $(call getvar,$(@),LIBS)
 
 .SUFFIXES: $(objexts) .mk .dep .cmd .oldcmd
+
+# Gather all files list in any $var-y except if that's known to be generated
+get_distfiles = $(filter-out $(ALL_GEN),$(foreach t,$(filter-out $(ALL_GEN),$(ALL_PROGS) $(ALL_LIBS) $(ALL_DATA) $(ALL_TESTS)) $(ALL_GEN),$(or $(call getysrc,$(t)),$(t))))
+
+$(DISTDIR):
+	$(Q)mkdir -p $@
+
+# external files (outside of $(SRCDIR)) are not distributed, this
+# also ensures make dist creates no filers outside of $(DISTDIR)
+root := $(abspath $(or $(SRCDIR),.))
+filter_external = $(foreach f,$(1),$(if $(findstring $(root),$(abspath $(f))),$(f)))
+
+km-dist: $(filter-out $(all_nodist),$(call get_distfiles,$(i)) $(all_dist)) | $(DISTDIR)
+	$(if $(Q),,$(AT)echo $(filter-out $(call filter_external,$^),$^) | xargs -r echo "skipped " >&2)
+	$(call printcmd,CP,$(call filter_external,$^))
+	$(Q)cp -p --parents -t $(DISTDIR) $(call filter_external,$^)
+
+
+DIST_SUFFIXES := xz gz bz2
+DIST_FOLDER   := $(notdir $(abspath $(DISTDIR)))
+
+.SUFFIXES: $(addprefix .,$(DIST_SUFFIXES))
+
+$(addprefix dist-,$(DIST_SUFFIXES)): dist-%: $(DIST_FOLDER).tar.%
+
+$(DIST_FOLDER).tar.xz: COMP=J
+$(DIST_FOLDER).tar.gz: COMP=z
+$(DIST_FOLDER).tar.bz2: COMP=z
+$(addprefix $(DIST_FOLDER).tar.,$(DIST_SUFFIXES)): dist
+	$(call printcmd,TAR,$@)
+	$(Q)rm -f $@
+	$(Q)tar -c$(COMP) -f $@ $(DIST_FOLDER)
 
 -include $(filter %.dep,$(cleanfiles))
 -include $(filter %.oldcmd,$(cleanfiles))
