@@ -400,6 +400,7 @@ $(addprefix install-prog-,$(prog_vars)): install-prog-%: FORCE
 install-progs: STRIPOPT = -s --strip-program=$(STRIP)
 install-progs: $(addprefix install-prog-,$(prog_vars))
 
+$(addprefix install-data-,$(data_vars)): LIBTOOL_INSTALL += -m 0644
 $(addprefix install-data-,$(data_vars)): install-data-%: FORCE
 	$(if $(all_$*),$(call printcmd,INSTALL,$(addprefix $(SRCDIR),$(all_$*))))
 	$(Q)$(call $(call get_install,$(all_$*)),$(addprefix $(SRCDIR),$(all_$*)),$($*-dir))
