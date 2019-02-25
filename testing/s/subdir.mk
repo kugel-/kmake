@@ -9,3 +9,5 @@ libshl.la-dir        := $(prefix)/tmp/lib
 libshl2.la-y         := s2.c
 libshl2.la-DEPS-y    := a/libx.la
 libshl2.la-LDFLAGS-y := -no-undefined
+
+headers-y            := s.h
