@@ -65,6 +65,7 @@ $(foreach v,$(prog_vars) $(lib_vars) $(data_vars),$(call clearvar,$(v)))
 $(foreach v,$(test_vars) $(gen_vars),$(call clearvar,$(v)))
 $(foreach v,clean distclean dist nodist submake,$(call clearvar,$(v)))
 $(foreach v,$(flag_names) $(aflag_names),$(call clearvar,$(v)))
+$(foreach v,$(flag_names) $(aflag_names),$(call clearvar,subdir-$(v)))
 extra-progs :=
 extra-libs :=
 extra-data :=
@@ -213,19 +214,31 @@ ALL_DATA   = $(foreach v,$(data_vars),$(all_$(v)))
 ALL_GEN    = $(foreach v,$(gen_vars),$(all_$(v)))
 ALL_TESTS  = $(foreach v,$(test_vars),$(all_$(v)))
 
-# Prepend variable $(2)-y to $(1)-(2)-y
-# e.g. prepend CFLAGS-y to libfoo-CFLAGS-y
+# Prepend variable subdir-$(2)-$(1)-y and $(1)-y to $(3)-(1)-y
+# e.g. prepend subdir-foo/bar-CFLAGS-y and CFLAGS-y to libfoo-CFLAGS-y
 define _prepend_flags
-$(1)-$(2)-y := $(call getvar,$(2)) $(call getvar,$(1),$(2))
+$(3)-$(1)-y := $(subdir-$(2)-$(1)-y) $($(1)-y) $($(3)-$(1)-y)
 endef
-prepend_flags = $(eval $(call _prepend_flags,$(call varname,$(1)),$(2)))
+prepend_flags = $(eval $(call _prepend_flags,$(1),$(2),$(call varname,$(3))))
 
-# Append variable $(2)-y to $(1)-(2)
-# e.g. prepend LIBS-y to libfoo-LIBS-y
-define _append_flags
-$(1)-$(2)-y := $(call getvar,$(1),$(2)) $(call getvar,$(2))
+# inherit_{a}flags uses a $$(value ...) on purpose, so that you can
+# reference $$(srcdir) in subdir-XXX-y to mean the $(srcdir) where the
+# flag is effective instead of $(srcdir) of the subdir.mk where subdir-XXX-y
+# is specified.
+define inherit_flags
+subdir-$(3)-$(1)-y := $$(value subdir-$(2)-$(1)-y) $$(value subdir-$(1)-y)
 endef
-append_flags = $(eval $(call _append_flags,$(call varname,$(1)),$(2)))
+
+define inherit_aflags
+subdir-$(3)-$(1)-y := $$(value subdir-$(1)-y) $$(value subdir-$(2)-$(1)-y)
+endef
+
+# Append variable $(1)-y and subdir-$(2)-$(1)-y to $(3)-(1)-y
+# e.g. append LIBS-y and subdir-foo/bar-LIBS-y to libfoo-LIBS-y
+define _append_flags
+$(3)-$(1)-y := $($(3)-$(1)-y) $($(1)-y) $(subdir-$(2)-$(1)-y)
+endef
+append_flags = $(eval $(call _append_flags,$(1),$(2),$(call varname,$(3))))
 
 # https://stackoverflow.com/a/47927343/5126486: Insert a new-line in a Makefile $(foreach ) loop
 define newline =

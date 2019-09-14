@@ -249,15 +249,27 @@ Predefined flag vars include:
     depending on whether library our sources files are listed (see XXX
     for a distinction between `var`-y).
 
-There is one more special property about flag variables: they can be combined
+One special property about flag variables is that they can be combined
 with targets, effectively building *target-specific flags*. The values are
 generally appended to the flag variables, allowing to override
-some options for individual::
+some options for individual targets::
 
     CFLAGS-y          := -O1
     mytool-CFLAGS-y   := -O2
     mytool-LIBS-y     := -lz
 
+Here, mytool will be compiled with both -O1 -O2, but the compiler generally
+uses the last occurence.
+
+Another special property is that for all flags there exists a subdir-XXX-y
+flavor. This flavor sets the initial flags for targets defined in
+sub-directories (see next section), and *only* for them. subdir-XXX-y
+does not affect the targets of the current subdir.mk (this is different
+to kbuild's subdir-ccflags-y). Therefore you probably want to initialize
+them like this::
+
+    CFLAGS-y          := -O1
+    subdir-CFLAGS-y   := $(CFLAGS-y) -Werror
 
 Recursive inclusion of subdir.mk
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -294,8 +306,15 @@ is mandatory.
 Between including two subdir.mk, kmake resets all kinds of vars (except target
 vars) to empty values, so no subdir.mk has the chance to accidentally delete
 targets defined in another subdir.mk or otherwise affect them negatively. Note
-that this is also true for subdir.mk files in a sub-directory. Variables,
-including CFLAGS and friends, do *not* affect sub-directories in any way.
+that this is also true for subdir.mk files in a sub-directory. Flags,
+such as CFLAGS and friends, do *not* affect sub-directories in any way.
+
+To set flags for sub-directories, use subdir-CFLAGS-y. subdir-CFLAGS-y is
+reset itself as well for sub-directory subdir.mk files, so they may add even
+more compiler options by defining their own subdir-CFLAGS-y. kmake will
+ensure leaf directories will see the concatenation of all subdir-CFLAGS-y
+in the parent directiroes. Again, remember that subdir-CFLAGS-y does
+only affect sub-directories but not the current one.
 
 However, target vars not reset since other subdir.mk files shouldn't know about
 them. This may be used to have multiple subdir.mk contribute to a global target

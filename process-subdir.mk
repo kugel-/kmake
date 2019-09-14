@@ -29,14 +29,21 @@ CPPFLAGS-y  := -I$(or $(OUTDIR)$(srcdir),.) -I$(or $(SRCDIR)$(srcdir),.) $(CPPFL
 # prepends CFLAGS-y to $(bin)-CFLAGS-y (and friends)
 $(foreach flag,$(flag_names),\
 	$(foreach v,$(prog_vars) $(lib_vars) $(gen_vars) $(test_vars),\
-		$(foreach bin,$($(v)-y),$(call prepend_flags,$(bin),$(flag)))))
+		$(foreach bin,$($(v)-y),$(call prepend_flags,$(flag),$(srcdir),$(bin)))))
 
 # Like above, except DEPS and LIBS should be appended
 # per-directory -l options should occur last (as LIBS usually holds
 # system libraries). Likewise, DEPS must occur before LIBS.
 $(foreach flag,$(aflag_names),\
 	$(foreach v,$(prog_vars) $(lib_vars) $(gen_vars) $(test_vars),\
-		$(foreach bin,$($(v)-y),$(call append_flags,$(bin),$(flag)))))
+		$(foreach bin,$($(v)-y),$(call append_flags,$(flag),$(srcdir),$(bin)))))
+
+# Setup up for flag inheritance so that subdirectory subdir.mk
+# have valid subdir-$(srcdir)-CFLAGS-y etc.
+$(foreach dir,$(addprefix $(srcdir),$(subdir-y)),\
+	$(foreach flag,$(flag_names),$(eval $(call inherit_flags,$(flag),$(srcdir),$(dir)))))
+$(foreach dir,$(addprefix $(srcdir),$(subdir-y)),\
+	$(foreach flag,$(aflag_names),$(eval $(call inherit_aflags,$(flag),$(srcdir),$(dir)))))
 
 $(eval $(call clearvars))
 
