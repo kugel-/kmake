@@ -187,6 +187,8 @@ getobj = $(strip $(foreach src,$(call getsrc_c,$(1)),$(call getobjfile,$(src),$(
 is_cxx = $(filter $(cpppats),$(1))
 # call with $(1) = target (incl. extension)
 is_lib = $(filter %.la %.a,$(1))
+# call with $(1) = target (incl. extension)
+is_shlib = $(filter %.la %.so,$(1))
 # call with $(1) = list of source files, $(2) = target (incl. extension)
 # returns CXX if one or more C++ files are found, else CC
 getcc = $(or $($(call varname,$(2))-compiler),$(if $(call is_cxx,$(1)),$(CXX),$(CC)))
@@ -250,6 +252,8 @@ define setvpath
 $(if $(2),$(foreach f,$(1),vpath $(f) $(2)$(newline)))
 endef
 
+filter_noinst = $(foreach t,$(1),$(if $(filter-out noinst,$(call getprop,$(t),dir)),$(t)))
+
 # Call with $1: object file, $2: src file, $3: target that $1 is part of
 define obj_rule
 cleanfiles += $(OUTDIR)$(1)
@@ -278,11 +282,6 @@ $(OUTDIR)$(1): | $(call gethdrdeps,$(3))
 $(call setvpath,$(1),$(OUTDIR))
 endef
 
-define rpath_rule
-# carefully avoid -rpath for static libraries or libtool convinience libraries
-$(OUTDIR)$(1): RPATH = $(and $(filter %.la,$(1)),$(filter-out noinst,$(call getprop,$(1),dir)),-rpath $(call getprop,$(1),dir))
-endef
-
 define prog_rule
 # if a target has no objects, it is assumed to be a script that does
 # not need to be built (as it cannot be built anyway)
@@ -294,6 +293,8 @@ $(OUTDIR)$(1): KM_LDFLAGS := $(KM_LDFLAGS) $(KM_LDFLAGS_$(if $(call is_lib,$(1))
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(call getsrc,$(1))),CXXLD,CCLD)
 $(OUTDIR)$(1): LTTAG = $(call getlttag,$(1))
 $(OUTDIR)$(1): LINK = $(call getcc,$(call getsrc,$(1)),$(1))
+# carefully set -rpath only for installable, shared libraries
+$(OUTDIR)$(1): RPATH = $(and $(call is_shlib,$(1)),$(call filter_noinst,$(1)),-rpath $(call getprop,$(1),dir))
 $(OUTDIR)$(1): CMD = $$(COMPILE) $$(RPATH) $$(KM_LDFLAGS) $$(LDFLAGS) -- $(call getvar,$(1),LIBS)
 $(OUTDIR)$(1): PARTS = $(call getobj,$(1))
 $(OUTDIR)$(1): $(call getobj,$(1))
@@ -338,7 +339,6 @@ $(foreach v,$(gen_vars) $(test_vars) $(prog_vars) $(lib_vars) $(data_vars),$(eva
 $(foreach prog,$(ALL_LIBS) $(ALL_PROGS) $(ALL_TESTS),$(eval $(call prog_rule,$(prog))))
 $(foreach test,$(ALL_TESTS),$(eval $(call test_rule,$(test))))
 $(foreach v,$(gen_vars),$(eval $(call gen_rule,$(v))))
-$(foreach lib,$(ALL_LIBS),$(eval $(call rpath_rule,$(lib))))
 
 changedir = $(if $(OUTDIR),cd $(OUTDIR))
 stripwd = $(if $(STRIPWD),$(patsubst $(OUTDIR)%,%,$(1)),$(1))
@@ -445,7 +445,6 @@ install_none =
 
 get_n_dirs = $(words $(sort $(foreach t,$(1),$(or $(call getprop,$(t),dir),x))))
 get_install = install_$(if $(1),$(or $(word $(call get_n_dirs,$(1)),all),one),none)
-filter_noinst = $(foreach t,$(1),$(if $(filter-out noinst,$(call getprop,$(t),dir)),$(t)))
 
 $(addprefix install-lib-,$(lib_vars)): install-lib-%: FORCE
 	$(eval LA_LIBS := $(filter %.la,$(addprefix $(OUTDIR),$(call filter_noinst,$(all_$*)))))
