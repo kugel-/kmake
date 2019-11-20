@@ -149,7 +149,7 @@ reverse = $(strip $(if $(word 2,$(1)),$(call reverse,$(wordlist 2,$(words $(1)),
 # prepend $(dir $(1)) to $(2), except if it's './' or $(2) is an absolute path
 addpath = $(patsubst $(dir $(1))/%,/%,$(addprefix $(filter-out ./,$(dir $(1))),$(2)))
 
-varname = $(foreach x,$(1),$(notdir $(x)))
+varname = $(notdir $(1))
 
 # call with $(1) = single src file, $(2) = target varname
 # inserts the target varname between the path to the source file
