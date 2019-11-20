@@ -1,4 +1,4 @@
-bin-y           := c clc csh cxx candcxx cxxcc
+bin-y           := c clc csh cxx candcxx cxxcc a/b/subc a/b/subc0
 
 c-CFLAGS-y      := -O1
 
@@ -21,3 +21,5 @@ candcxx-y       := cxx1.cpp c1.c
 cxxcc-y         := cc.cpp
 cxxcc-compiler  := $(CC)
 cxxcc-DEPS-y    := s/libshl2.la
+
+subc0-y         := a/b/subc.c
