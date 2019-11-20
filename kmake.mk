@@ -337,11 +337,20 @@ define inherit_props
 $(foreach t,$(all_$(1)),$(foreach s,$(prop_names),$(if $($(1)-$(s)),$(call varname,$(t))-$(s) ?= $($(1)-$(s))$(newline))))
 endef
 
+define install_rule
+install-$(1): $(1)
+install-$(1): $(addprefix install-,$(call varname,$(call filter_noinst,$(call getobj,$(1)))))
+install-$(call varname,$(1)): install-$(1)
+endef
+
 $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
+
+
 $(foreach v,$(gen_vars) $(test_vars) $(prog_vars) $(lib_vars) $(data_vars),$(eval $(call inherit_props,$(v))))
 $(foreach prog,$(ALL_LIBS) $(ALL_PROGS) $(ALL_TESTS),$(eval $(call prog_rule,$(prog))))
 $(foreach test,$(ALL_TESTS),$(eval $(call test_rule,$(test))))
 $(foreach v,$(gen_vars),$(eval $(call gen_rule,$(v))))
+$(foreach prog,$(call filter_noinst,$(ALL_LIBS) $(ALL_PROGS) $(ALL_DATA)),$(eval $(call install_rule,$(prog))))
 
 changedir = $(if $(OUTDIR),cd $(OUTDIR))
 stripwd = $(if $(STRIPWD),$(patsubst $(OUTDIR)%,%,$(1)),$(1))
@@ -352,7 +361,7 @@ printcmd = $(if $(Q),@printf "  %-8s%s\n" "$(1)" "$(call stripwd,$(2))")
 # so that those sub-Makefiles can depeend on kmake-created files
 # However, the order reverses for clean targets because otherwise
 # kmake would already delete files while sub-Makefiles still need them
-sub_targets = all install install-strip dist
+sub_targets = all check install install-strip dist
 sub_targets_pre = clean distclean
 
 .PHONY: FORCE all libs progs data generated check clean
@@ -365,13 +374,6 @@ sub_targets_pre = clean distclean
 run-test-%:
 	$(Q)driver=$($(call varname,$*)-driver); name=$*; test=$<; $$driver $$test $(KM_CHECKFLAGS) ; \
 	if [ $$? = 0 ]; then echo PASS: $$test; else echo FAIL: $$test; fi
-
-# PARTDIR restricts the selected targets to a given directory (partial build)
-libs: $(filter $(PARTDIR)%,$(ALL_LIBS))
-progs: $(filter $(PARTDIR)%,$(ALL_PROGS))
-data: $(filter $(PARTDIR)%,$(ALL_DATA))
-generated: $(filter $(PARTDIR)%,$(ALL_GEN))
-submakes: submakes-all
 
 # It's crucial that submakes-% depends on km-% if all_submake becomes
 # empty due to the PARTDIR filter, otherwise all (etc.) has nothing to do
@@ -420,11 +422,15 @@ endef
 $(foreach t,$(sub_targets),$(eval $(call submake_rule,$(t))))
 $(foreach t,$(sub_targets_pre),$(eval $(call submake_rule_pre,$(t))))
 
-km-all: libs progs data
+submakes: submakes-all
+# PARTDIR restricts the selected targets to a given directory (partial build)
+generated: $(filter $(PARTDIR)%,$(ALL_GEN))
+libs: $(filter $(PARTDIR)%,$(ALL_LIBS))
+progs: $(filter $(PARTDIR)%,$(ALL_PROGS))
+data: $(filter $(PARTDIR)%,$(ALL_DATA))
 
-km-check: $(addprefix run-test-,$(call varname,$(filter $(PARTDIR)%,$(ALL_TESTS))))
-check: km-check
-
+km-all: generated libs progs data
+km-check: generated $(addprefix run-test-,$(call varname,$(filter $(PARTDIR)%,$(ALL_TESTS))))
 km-clean:
 	$(call printcmd,RM,$(filter-out %.dep %.cmd %.oldcmd,$(cleanfiles)) $(addprefix $(OUTDIR),$(all_clean)))
 	$(Q)$(LIBTOOL_RM) $(filter-out %.dep %.cmd %.oldcmd,$(cleanfiles)) $(addprefix $(OUTDIR),$(all_clean))
@@ -438,39 +444,13 @@ km-install: install-libs install-progs install-data
 km-install-strip: LIBTOOL_INSTALL += $(STRIPOPT)
 km-install-strip: install
 
-# Installation dir is given by the -dir property. But, being a property,
-# it can be overridden per target. We must respect a potentially disparate
-# installation dir, falling back to installing targets individually, if this
-# is detected. Normally all targets of a var can be installed at once.
-install_all = mkdir -p $(DESTDIR)$(2);$(LIBTOOL_INSTALL) $(1) $(DESTDIR)$(2)
-install_one = $(foreach t,$(1),mkdir -p $(DESTDIR)$(or $(call getprop,$(t),dir),$(error $(t)-dir must be specified)); $(LIBTOOL_INSTALL) $(t) $(DESTDIR)$(call getprop,$(t),dir);)
-install_none =
-
-get_n_dirs = $(words $(sort $(foreach t,$(1),$(or $(call getprop,$(t),dir),x))))
-get_install = install_$(if $(1),$(or $(word $(call get_n_dirs,$(1)),all),one),none)
-
-$(addprefix install-lib-,$(lib_vars)): install-lib-%: FORCE
-	$(eval LA_LIBS := $(filter %.la,$(addprefix $(OUTDIR),$(call filter_noinst,$(all_$*)))))
-	$(if $(LA_LIBS),$(call printcmd,INSTALL,$(LA_LIBS)))
-	$(Q)$(call $(call get_install,$(LA_LIBS)),$(LA_LIBS),$($*-dir))
-
 install-libs: STRIPOPT = -s
-install-libs: $(addprefix install-lib-,$(lib_vars))
-
-$(addprefix install-prog-,$(prog_vars)): install-prog-%: FORCE
-	$(eval PROGS := $(addprefix $(OUTDIR),$(call filter_noinst,$(all_$*))))
-	$(if $(PROGS),$(call printcmd,INSTALL,$(PROGS)))
-	$(Q)$(call $(call get_install,$(PROGS)),$(PROGS),$($*-dir))
-
+install-libs: $(addprefix install-,$(call filter_noinst,$(filter $(PARTDIR)%,$(ALL_LIBS))))
 install-progs: STRIPOPT = -s --strip-program=$(STRIP)
-install-progs: $(addprefix install-prog-,$(prog_vars))
-
-$(addprefix install-data-,$(data_vars)): LIBTOOL_INSTALL += -m 0644
-$(addprefix install-data-,$(data_vars)): install-data-%: FORCE
-	$(if $(all_$*),$(call printcmd,INSTALL,$(addprefix $(SRCDIR),$(all_$*))))
-	$(Q)$(call $(call get_install,$(all_$*)),$(addprefix $(SRCDIR),$(all_$*)),$($*-dir))
-
-install-data: $(addprefix install-data-,$(data_vars))
+install-progs: INSTALL_PROGRAM += -m 0755
+install-progs: $(addprefix install-,$(call filter_noinst,$(filter $(PARTDIR)%,$(ALL_PROGS))))
+install-data: INSTALL_PROGRAM += -m 0644
+install-data: $(addprefix install-,$(call filter_noinst,$(filter $(PARTDIR)%,$(ALL_DATA))))
 
 # We have to use $(shell) for mkdir so that make executes it before other make
 # (especially $(file)), as the recipe is all make functions.
@@ -520,6 +500,11 @@ $(addprefix $(OUTDIR),$(ALL_PROGS) $(ALL_TESTS)):
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(if $(filter %.la %.lo,$+),$(LIBTOOL_LINK),$(LINK)) $(KM_LDFLAGS) $(LDFLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
+
+$(addprefix install-,$(ALL_LIBS) $(ALL_PROGS) $(ALL_DATA)):
+	$(call printcmd,INSTALL,$<)
+	$(AT)mkdir -p $(DESTDIR)$(call getprop,$<,dir)
+	$(Q)$(if $(filter %.la %.lo,$+),$(LIBTOOL_INSTALL),$(INSTALL_PROGRAM)) $< $(DESTDIR)$(call getprop,$<,dir)
 
 .SUFFIXES: $(objexts) .mk .dep .cmd .oldcmd
 
