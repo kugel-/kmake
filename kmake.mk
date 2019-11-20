@@ -428,7 +428,7 @@ check: km-check
 km-clean:
 	$(call printcmd,RM,$(filter-out %.dep %.cmd %.oldcmd,$(cleanfiles)) $(addprefix $(OUTDIR),$(all_clean)))
 	$(Q)$(LIBTOOL_RM) $(filter-out %.dep %.cmd %.oldcmd,$(cleanfiles)) $(addprefix $(OUTDIR),$(all_clean))
-	$(QQ)$(LIBTOOL_RM) $(filter %.dep %.cmd %.oldcmd,$(cleanfiles))
+	$(QQ)$(RM) $(filter %.dep %.cmd %.oldcmd,$(cleanfiles))
 
 km-distclean: km-clean
 	$(if $(all_distclean),$(call printcmd,RM,$(addprefix $(OUTDIR),$(all_distclean))))
