@@ -17,7 +17,7 @@ flag_names  := $(sort $(flag_names) $(extra-flags))
 aflag_names := $(sort $(aflag_names) $(extra-append-flags))
 
 # There is only a single tests variable, and the programs need not be installed
-$(foreach v,$(prog_vars) $(lib_vars) $(data_vars) $(gen_vars) $(test_vars) clean distclean dist nodist submake,\
+$(foreach v,$(prog_vars) $(lib_vars) $(data_vars) $(gen_vars) $(test_vars) clean distclean dist nodist submake postmake,\
 	$(if $($(v)-y),$(eval all_$(v) += $(addprefix $(srcdir),$($(v)-y)))) \
 	$(foreach bin,$($(v)-y),$(eval $(call varname,$(bin))-origin := $(srcdir)subdir.mk)))
 $(foreach v,$(prog_vars) $(lib_vars) $(data_vars),\

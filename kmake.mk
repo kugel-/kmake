@@ -63,7 +63,7 @@ define clearvars
 # clear each $xx-y
 $(foreach v,$(prog_vars) $(lib_vars) $(data_vars),$(call clearvar,$(v)))
 $(foreach v,$(test_vars) $(gen_vars),$(call clearvar,$(v)))
-$(foreach v,clean distclean dist nodist submake,$(call clearvar,$(v)))
+$(foreach v,clean distclean dist nodist submake postmake,$(call clearvar,$(v)))
 $(foreach v,$(flag_names) $(aflag_names),$(call clearvar,$(v)))
 $(foreach v,$(flag_names) $(aflag_names),$(call clearvar,subdir-$(v)))
 extra-progs :=
@@ -420,6 +420,7 @@ sub_targets_pre = clean distclean
 .PHONY: dist distclean
 .PHONY: install install-progs install-libs install-data install-strip
 .PHONY: submakes $(addprefix submakes-,$(sub_targets) $(sub_targets_pre))
+.PHONY: postmakes $(addprefix postmakes-,$(sub_targets) $(sub_targets_pre))
 .PHONY: km-all km-clean km-check km-install km-install-strip
 .PHONY: km-dist km-distclean
 
@@ -430,49 +431,49 @@ run-test-%:
 # It's crucial that submakes-% depends on km-% if all_submake becomes
 # empty due to the PARTDIR filter, otherwise all (etc.) has nothing to do
 define submake_rule_dir
-submake-$(1)-$(2): TARGET = $(1)
-submake-$(1)-$(2): DIR = $(2)
-submake-$(1)-$(2): SUBMAKE = $$(dir $$(or $$(wildcard $(OUTDIR)$$(DIR)Makefile),$$(DIR)Makefile))
-submake-$(1)-$(2): DDIR := $$(DISTDIR)$(2)
+$(3)-$(1)-$(2): SUBMAKE = $$(dir $$(or $$(wildcard $(OUTDIR)$(2)Makefile),$(2)Makefile))
 
 ifeq ($(1),dist)
 $$(DISTDIR)$(2): ; $(Q)mkdir -p $$@
 
-submake-dist-$(2): | $$(DISTDIR)$(2)
+$(3)-dist-$(2): | $$(DISTDIR)$(2)
 endif
 
-.PHONY: submake-$(1)-$(2)
-submake-$(1)-$(2):
-	$(call printcmd,MAKE,$$(SUBMAKE))
-	$(Q)$$(MAKE) -C $$(SUBMAKE) $$(TARGET) $(if $(filter dist,$(1)),DISTDIR=$$(DDIR))
+.PHONY: $(3)-$(1)-$(2)
+$(3)-$(1)-$(2):
+	$(call printcmd,MAKE,$$(SUBMAKE) $(1))
+	$(Q)$$(MAKE) -C $$(SUBMAKE) SRCDIR=$(abspath .)/ OUTDIR=$(abspath ./$$(OUTDIR)) SUBMAKE=$$(SUBMAKE) POSTMAKE=$$(SUBMAKE) DISTDIR=$$(DISTDIR)$(2) $(1)
 
 endef
 
-# all -> submakes-all -> submake-all-% -> km-all
-# (or all -> submakes-all -> km-all if all_submake is empty)
+# all -> submakes-all -> submake-all-%
+# (or all -> submakes-all if all_submake is empty)
+# same for postmake
 define submake_rule
-.PHONY: submakes-$(1)
-$(1): submakes-$(1)
-submakes-$(1): $(or $(addprefix submake-$(1)-,$(call filter_partial,$(all_submake))),km-$(1))
-$(foreach d,$(all_submake),submake-$(1)-$(d): km-$(1)$(newline))
+.PHONY: submakes-$(1) postmakes-$(1)
+$(1): submakes-$(1) km-$(1) postmakes-$(1)
+submakes-$(1): $(addprefix submake-$(1)-,$(call filter_partial,$(all_submake)))
+postmakes-$(1): $(addprefix postmake-$(1)-,$(call filter_partial,$(all_postmake)))
 
-$(foreach d,$(all_submake),$(call submake_rule_dir,$(1),$(d))$(newline))
+$(foreach d,$(all_submake),$(call submake_rule_dir,$(1),$(d),submake))
+$(foreach d,$(all_postmake),$(call submake_rule_dir,$(1),$(d),postmake))
+
 endef
 
-# clean -> km-clean -> submakes-clean -> reversed submake-clean-%
-# (or clean -> km-clean -> submakes-clean if all_submake is empty)
-define submake_rule_pre
-.PHONY: submakes-$(1)
-$(1): km-$(1)
-km-$(1): submakes-$(1)
-$(foreach d,$(call reverse,$(call filter_partial,$(all_submake))),submakes-$(1): submake-$(1)-$(d)$(newline))
+# postmake-all-% -> km-all
+define postmake_rule
+$(foreach d,$(all_postmake),postmake-$(1)-$(d)): km-$(1)
+endef
 
-$(foreach d,$(all_submake),$(call submake_rule_dir,$(1),$(d))$(newline))
+# km-clean -> postmakes-clean
+define postmake_rule_pre
+km-$(1): postmakes-$(1)
 endef
 
 # no $(newline) here!
-$(foreach t,$(sub_targets),$(eval $(call submake_rule,$(t))))
-$(foreach t,$(sub_targets_pre),$(eval $(call submake_rule_pre,$(t))))
+$(foreach t,$(sub_targets) $(sub_targets_pre),$(eval $(call submake_rule,$(t))))
+$(foreach t,$(sub_targets),$(eval $(call postmake_rule,$(t))))
+$(foreach t,$(sub_targets_pre),$(eval $(call postmake_rule_pre,$(t))))
 
 submakes: submakes-all
 # filter_partial() restricts the selected targets to the given directories (partial build)
