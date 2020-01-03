@@ -1,4 +1,4 @@
-.PHONY: all clean install install-strip dist
+.PHONY: all clean install install-strip dist distclean check
 
 all: tool
 

@@ -3,6 +3,7 @@ CFLAGS-y     := -O2
 subdir-y     := 1/
 
 bin-y        := x y
+tests-y      := y
 
 x-y          := x.c
 x-y          += ../a.c
