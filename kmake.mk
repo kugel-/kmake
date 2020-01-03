@@ -212,12 +212,16 @@ getdepopt = -MD -MP -MF$(call getdepfile,$(1)) -MQ$(1)
 strneq = $(subst $(1),,$(2))$(subst $(2),,$(1))
 # returns x if $(1) and $(1) are the same
 streq = $(if $(call strneq,$(1),$(2)),,x)
+# Remove duplicates without sorting
+# https://stackoverflow.com/a/16151140/5126486
+uniq = $(if $1,$(firstword $1) $(call uniq,$(filter-out $(firstword $1),$1)))
 
-ALL_PROGS  = $(foreach v,$(prog_vars),$(all_$(v)))
-ALL_LIBS   = $(foreach v,$(lib_vars),$(all_$(v)))
-ALL_DATA   = $(foreach v,$(data_vars),$(all_$(v)))
-ALL_GEN    = $(foreach v,$(gen_vars),$(all_$(v)))
-ALL_TESTS  = $(foreach v,$(test_vars),$(all_$(v)))
+ALL_PROGS       = $(foreach v,$(prog_vars),$(all_$(v)))
+ALL_LIBS        = $(foreach v,$(lib_vars),$(all_$(v)))
+ALL_DATA        = $(foreach v,$(data_vars),$(all_$(v)))
+ALL_GEN         = $(foreach v,$(gen_vars),$(all_$(v)))
+ALL_TESTS       = $(foreach v,$(test_vars),$(all_$(v)))
+ALL_PROGS_TESTS = $(call uniq,$(ALL_PROGS) $(ALL_TESTS))
 
 # Prepend variable subdir-$(2)-$(1)-y and $(1)-y to $(3)-(1)-y
 # e.g. prepend subdir-foo/bar-CFLAGS-y and CFLAGS-y to libfoo-CFLAGS-y
@@ -347,7 +351,7 @@ $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
 
 
 $(foreach v,$(gen_vars) $(test_vars) $(prog_vars) $(lib_vars) $(data_vars),$(eval $(call inherit_props,$(v))))
-$(foreach prog,$(ALL_LIBS) $(ALL_PROGS) $(ALL_TESTS),$(eval $(call prog_rule,$(prog))))
+$(foreach prog,$(ALL_LIBS) $(ALL_PROGS_TESTS),$(eval $(call prog_rule,$(prog))))
 $(foreach test,$(ALL_TESTS),$(eval $(call test_rule,$(test))))
 $(foreach v,$(gen_vars),$(eval $(call gen_rule,$(v))))
 $(foreach prog,$(call filter_noinst,$(ALL_LIBS) $(ALL_PROGS) $(ALL_DATA)),$(eval $(call install_rule,$(prog))))
@@ -496,7 +500,7 @@ $(addprefix $(OUTDIR),$(filter %.a,$(ALL_LIBS))):
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(AR) rcs $@ $(call getparts,$(PARTS),$+)
 
-$(addprefix $(OUTDIR),$(ALL_PROGS) $(ALL_TESTS)):
+$(addprefix $(OUTDIR),$(ALL_PROGS_TESTS)):
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(if $(filter %.la %.lo,$+),$(LIBTOOL_LINK),$(LINK)) $(KM_LDFLAGS) $(LDFLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
