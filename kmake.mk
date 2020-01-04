@@ -285,23 +285,15 @@ cleanfiles += $(OUTDIR)$(call getdepfile,$(1))
 cleanfiles += $(OUTDIR)$(call getcmdfile,$(1))
 cleanfiles += $(OUTDIR)$(call getoldcmdfile,$(1))
 
-# Use X := X Y notation to append to *FLAGS. For some reason,  += leads to
-# KM_LDFLAGS of one target leaking to other targets. I couldn't reproduce it
-# with a simplified Makefile yet but I think it's a bug in GNU make
-$(OUTDIR)$(1): KM_CPPFLAGS := $(KM_CPPFLAGS) $(KM_CPPFLAGS_$(if $(call is_lib,$(3)),LIB,PROG)) $(call getvar,$(3),CPPFLAGS)
-$(OUTDIR)$(1): KM_CFLAGS   := $(KM_CFLAGS)   $(KM_CFLAGS_$(if $(call is_lib,$(3)),LIB,PROG))   $(call getvar,$(3),CFLAGS)
-$(OUTDIR)$(1): KM_CXXFLAGS := $(KM_CXXFLAGS) $(KM_CXXFLAGS_$(if $(call is_lib,$(3)),LIB,PROG)) $(call getvar,$(3),CXXFLAGS)
-$(OUTDIR)$(1): COMPILE_FLAGS = $(if $(call is_cxx,$(2)),$$(KM_CXXFLAGS) $$(CXXFLAGS),$$(KM_CFLAGS) $(CFLAGS))
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(2)),CXX,CC)
 $(OUTDIR)$(1): LTTAG = $(call getlttag,$(3))
 $(OUTDIR)$(1): COMPILE = $(call getcc,$(2),$(3))
-$(OUTDIR)$(1): CMD = $$(COMPILE) $$(KM_CPPFLAGS) $$(CPPFLAGS) $$(COMPILE_FLAGS)
+$(OUTDIR)$(1): ALL_FLAGS = $$($(3)-CPPFLAGS) $$(CPPFLAGS) $(if $(call is_cxx,$(2)),$$($(3)-CXXFLAGS) $$(CXXFLAGS),$$($(3)-CFLAGS) $(CFLAGS))
+$(OUTDIR)$(1): CMD = $$(COMPILE) $$(ALL_FLAGS)
 $(OUTDIR)$(1): PARTS = $(2)
 $(OUTDIR)$(1): $(2)
 $(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
-# avoid a normal dependency for headers, those come through .dep files
-# but ensure generated headers are generated first
-$(OUTDIR)$(1): | $(call gethdrdeps,$(3))
+$(OUTDIR)$(1): | $$($(3)-oodeps)
 
 $(call setvpath,$(1),$(OUTDIR))
 endef
@@ -313,13 +305,13 @@ cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(1))
 cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(call getcmdfile,$(1)))
 cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(call getoldcmdfile,$(1)))
 
-$(OUTDIR)$(1): KM_LDFLAGS := $(KM_LDFLAGS) $(KM_LDFLAGS_$(if $(call is_lib,$(1)),LIB,PROG)) $(call getvar,$(1),LDFLAGS)
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(call getsrc,$(1))),CXXLD,CCLD)
 $(OUTDIR)$(1): LTTAG = $(call getlttag,$(1))
 $(OUTDIR)$(1): LINK = $(call getcc,$(call getsrc,$(1)),$(1))
 # carefully set -rpath only for installable, shared libraries
 $(OUTDIR)$(1): RPATH = $(and $(call is_shlib,$(1)),$(call filter_noinst,$(1)),-rpath $(call getprop,$(1),dir))
-$(OUTDIR)$(1): CMD = $$(LINK) $$(RPATH) $$(KM_LDFLAGS) $$(LDFLAGS) -- $(call getvar,$(1),LIBS)
+$(OUTDIR)$(1): ALL_FLAGS = $$(RPATH) $$($(1)-LDFLAGS) $$(LDFLAGS)
+$(OUTDIR)$(1): CMD = $$(LINK) $$(ALL_FLAGS) -- $(call getvar,$(1),LIBS)
 $(OUTDIR)$(1): PARTS = $(call getobj,$(1))
 $(OUTDIR)$(1): $(call getobj,$(1))
 $(OUTDIR)$(1): $(if $(call getobj,$(1)),$(OUTDIR)$(call getcmdfile,$(1)))
@@ -327,6 +319,17 @@ $(OUTDIR)$(1): $(if $(call getobj,$(1)),$(OUTDIR)$(call getcmdfile,$(1)))
 $(call setvpath,$(1) $(call gethdrdeps,$(1)),$(OUTDIR))
 
 $(call varname,$(1))-obj += $(call getobj,$(1))
+
+# Cache some per-target variables so that they don't have to be recomputed
+# for each object file that make up the target.
+$(1)-CPPFLAGS := $(KM_CPPFLAGS) $(KM_CPPFLAGS_$(if $(call is_lib,$(1)),LIB,PROG)) $(call getvar,$(1),CPPFLAGS)
+$(1)-CFLAGS   := $(KM_CFLAGS)   $(KM_CFLAGS_$(if $(call is_lib,$(1)),LIB,PROG))   $(call getvar,$(1),CFLAGS)
+$(1)-CXXFLAGS := $(KM_CXXFLAGS) $(KM_CXXFLAGS_$(if $(call is_lib,$(1)),LIB,PROG)) $(call getvar,$(1),CXXFLAGS)
+$(1)-LDFLAGS  := $(KM_LDFLAGS)  $(KM_LDFLAGS_$(if $(call is_lib,$(1)),LIB,PROG))  $(call getvar,$(1),LDFLAGS)
+# Add headers specified via $var-y as order-only dep, to ensure the headers
+# are genrated first (if generated anyway). If a .o really depends on it,
+# a normal dep will be added by the .dep files.
+$(1)-oodeps   := $(call gethdrdeps,$(1))
 
 $(foreach f,$(call getsrc_c,$(1)),$(call obj_rule,$(call getobjfile,$(f),$(1)),$(f),$(1))$(newline))
 endef
@@ -498,19 +501,19 @@ all_obj = $(filter %.o,$(cleanfiles))
 $(all_obj): $(OUTDIR)%.o:
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)/.deps
-	$(Q)$(COMPILE) $(call getdepopt,$@) $(KM_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS) -c -o $@ $(call getparts,$(PARTS),$^)
+	$(Q)$(COMPILE) $(call getdepopt,$@) $(ALL_FLAGS) -c -o $@ $(call getparts,$(PARTS),$^)
 
 # prevent %.lo to become a fallback rule for any file
 all_lobj = $(filter %.lo,$(cleanfiles))
 $(all_lobj): $(OUTDIR)%.lo:
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)/.deps
-	$(Q)$(LIBTOOL_COMPILE) $(call getdepopt,$@) $(KM_CPPFLAGS) $(CPPFLAGS) $(COMPILE_FLAGS) -c -o $@ $(call getparts,$(PARTS),$^)
+	$(Q)$(LIBTOOL_COMPILE) $(call getdepopt,$@) $(ALL_FLAGS) -c -o $@ $(call getparts,$(PARTS),$^)
 
 $(addprefix $(OUTDIR),$(filter %.la,$(ALL_LIBS))):
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(call flock_s,$(filter %.la,$^))$(LIBTOOL_LINK) $(RPATH) $(KM_LDFLAGS) $(LDFLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
+	$(Q)$(call flock_s,$(filter %.la,$^))$(LIBTOOL_LINK) $(ALL_FLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
 
 $(addprefix $(OUTDIR),$(filter %.a,$(ALL_LIBS))):
 	$(call printcmd,AR,$@)
@@ -520,7 +523,7 @@ $(addprefix $(OUTDIR),$(filter %.a,$(ALL_LIBS))):
 $(addprefix $(OUTDIR),$(ALL_PROGS_TESTS)):
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(call flock_s,$(filter %.la,$^))$(if $(filter %.la %.lo,$+),$(LIBTOOL_LINK),$(LINK)) $(KM_LDFLAGS) $(LDFLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
+	$(Q)$(call flock_s,$(filter %.la,$^))$(if $(filter %.la %.lo,$+),$(LIBTOOL_LINK),$(LINK)) $(ALL_FLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
 
 $(addprefix install-,$(ALL_LIBS) $(ALL_PROGS) $(ALL_DATA)):
 	$(call printcmd,INSTALL,$<)
