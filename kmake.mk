@@ -216,6 +216,23 @@ streq = $(if $(call strneq,$(1),$(2)),,x)
 # https://stackoverflow.com/a/16151140/5126486
 uniq = $(if $1,$(firstword $1) $(call uniq,$(filter-out $(firstword $1),$1)))
 
+# File locking between recipes...we do this because there is a bad
+# issue in libtool, when doing link and install concurrently. Linking
+# a library (.la) into another file fails if the library is installed
+# (possibly with relinking) at the same time.
+#
+# It seems sufficient to use exclusive lock for install recipies,
+# the link recipies can use shared locking and therefore run concurrently
+# with respect to each other.
+#
+# The functions generate an flock command prefix for use within recipes,
+# the remainer of the line will execute within the lock.
+#
+# The file list must be sorted to prevent potential deadlock between two
+# recipies, also sort conviniently de-dups the list.
+flock_s = $(foreach f,$(strip $(sort $(1))),flock -s $(f) )
+flock_x = $(foreach f,$(strip $(sort $(1))),flock -x $(f) )
+
 ALL_PROGS       = $(foreach v,$(prog_vars),$(all_$(v)))
 ALL_LIBS        = $(foreach v,$(lib_vars),$(all_$(v)))
 ALL_DATA        = $(foreach v,$(data_vars),$(all_$(v)))
@@ -493,7 +510,7 @@ $(all_lobj): $(OUTDIR)%.lo:
 $(addprefix $(OUTDIR),$(filter %.la,$(ALL_LIBS))):
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(LIBTOOL_LINK) $(RPATH) $(KM_LDFLAGS) $(LDFLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
+	$(Q)$(call flock_s,$(filter %.la,$^))$(LIBTOOL_LINK) $(RPATH) $(KM_LDFLAGS) $(LDFLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
 
 $(addprefix $(OUTDIR),$(filter %.a,$(ALL_LIBS))):
 	$(call printcmd,AR,$@)
@@ -503,12 +520,12 @@ $(addprefix $(OUTDIR),$(filter %.a,$(ALL_LIBS))):
 $(addprefix $(OUTDIR),$(ALL_PROGS_TESTS)):
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(if $(filter %.la %.lo,$+),$(LIBTOOL_LINK),$(LINK)) $(KM_LDFLAGS) $(LDFLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
+	$(Q)$(call flock_s,$(filter %.la,$^))$(if $(filter %.la %.lo,$+),$(LIBTOOL_LINK),$(LINK)) $(KM_LDFLAGS) $(LDFLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
 
 $(addprefix install-,$(ALL_LIBS) $(ALL_PROGS) $(ALL_DATA)):
 	$(call printcmd,INSTALL,$<)
 	$(AT)mkdir -p $(DESTDIR)$(call getprop,$<,dir)
-	$(Q)$(if $(filter %.la %.lo,$+),$(LIBTOOL_INSTALL),$(INSTALL_PROGRAM)) $< $(DESTDIR)$(call getprop,$<,dir)
+	$(Q)$(call flock_x,$(filter %.la,$<))$(if $(filter %.la %.lo,$+),$(LIBTOOL_INSTALL),$(INSTALL_PROGRAM)) $< $(DESTDIR)$(call getprop,$<,dir)
 
 .SUFFIXES: $(objexts) .mk .dep .cmd .oldcmd
 
