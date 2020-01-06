@@ -477,17 +477,21 @@ install-data: INSTALL_PROGRAM += -m 0644
 install-data: $(addprefix install-,$(call filter_noinst,$(filter $(PARTDIR)%,$(ALL_DATA))))
 
 # We have to use $(shell) for mkdir so that make executes it before other make
-# (especially $(file)), as the recipe is all make functions.
-# Also we have to make sure that we don't end up with an empty recipe,
-# so we set a fallback to : (shell no-op)
-# Finally, we must ensure .cmd is created iff it doesn't exist, even if any of
-# CMD and OLDCMD is empty, so we write at least one character (; is appended)
-$(OUTDIR)%.cmd: FORCE
-	$(AT)$(shell mkdir -p $(dir $@))
+# (especially $(file)), as the recipe is mostly make functions.
+#
+# We must ensure .oldcmd is created it doesn't exist, even if any (or both) of
+# CMD and OLDCMD is empty, so we write at least one character (; is appended).
+# This also ensures OLDCMD is never empty unless it's not defined at all.
+#
+# Special handling for make -q because make functions execute regardless of -q.
+$(filter %.cmd,$(cleanfiles)): $(OUTDIR)%.cmd: FORCE
+ifeq ($(findstring q,$(MAKEFLAGS)),)
 	$(eval L_OBJ := $(call addpath,$(subst .deps/$(notdir $*),,$*),$(notdir $*)))
 	$(eval L_CMD := $(strip $(CMD));)
+	$(AT)$(shell mkdir -p $(dir $@))
 	$(QQ)$(if $(call strneq,$(OLDCMD),$(L_CMD)),$(file >$(OUTDIR)$*.oldcmd,$$(OUTDIR)$(L_OBJ): OLDCMD = $(L_CMD)))
-	$(QQ)$(if $(call strneq,$(OLDCMD),$(L_CMD)),touch $@,:)
+	$(QQ)touch -r $(OUTDIR)$*.oldcmd $@
+endif
 
 # Filter $+/$^ by $(PARTS) since it's they are allowed to list extra files,
 # e.g. via additional dependencies in make-style (e.g. "foo-bar.lo: foo.h")
@@ -564,5 +568,10 @@ $(addprefix $(DIST_FOLDER).tar.,$(DIST_SUFFIXES)): dist
 	$(Q)rm -f $@
 	$(Q)tar -c$(COMP) -f $@ $(DIST_FOLDER)
 
+# http://make.mad-scientist.net/papers/advanced-auto-dependency-generation
+# empty recipies for files that are included by make, to avoid
+# re-exec make when they are updated.
+$(filter %.dep,$(cleanfiles)): ;
+$(filter %.oldcmd,$(cleanfiles)): ;
 -include $(filter %.dep,$(cleanfiles))
 -include $(filter %.oldcmd,$(cleanfiles))
