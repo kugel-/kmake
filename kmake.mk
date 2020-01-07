@@ -455,6 +455,8 @@ data: $(filter $(PARTDIR)%,$(ALL_DATA))
 
 km-all: generated libs progs data
 km-check: generated $(addprefix run-test-,$(call varname,$(filter $(PARTDIR)%,$(ALL_TESTS))))
+km-clean: cleanfiles := $(filter $(OUTDIR)$(PARTDIR)%,$(cleanfiles))
+km-clean: all_clean := $(filter $(PARTDIR)%,$(all_clean))
 km-clean:
 	$(call printcmd,RM,$(filter-out %.dep %.cmd %.oldcmd,$(cleanfiles)) $(addprefix $(OUTDIR),$(all_clean)))
 	$(Q)$(LIBTOOL_RM) $(filter-out %.dep %.cmd %.oldcmd,$(cleanfiles)) $(addprefix $(OUTDIR),$(all_clean))
