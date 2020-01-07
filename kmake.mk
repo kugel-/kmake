@@ -276,6 +276,7 @@ define setvpath
 $(if $(2),$(foreach f,$(1),vpath $(f) $(2)$(newline)))
 endef
 
+filter_nobuild = $(foreach t,$(1),$(if $(call getsrc_c,$(t)),$(t)))
 filter_noinst = $(foreach t,$(1),$(if $(filter-out noinst,$(call getprop,$(t),dir)),$(t)))
 
 # Call with $1: object file, $2: src file, $3: target that $1 is part of
@@ -372,6 +373,7 @@ $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
 
 $(foreach v,$(gen_vars) $(test_vars) $(prog_vars) $(lib_vars) $(data_vars),$(eval $(call inherit_props,$(v))))
 $(foreach prog,$(ALL_LIBS) $(ALL_PROGS_TESTS),$(eval $(call prog_rule,$(prog))))
+$(foreach prog,$(call filter_nobuild,$(ALL_LIBS) $(ALL_PROGS_TESTS)),$(eval $(call prog_rule,$(prog))))
 $(foreach test,$(ALL_TESTS),$(eval $(call test_rule,$(test))))
 $(foreach v,$(gen_vars),$(eval $(call gen_rule,$(v))))
 $(foreach prog,$(call filter_noinst,$(ALL_LIBS) $(ALL_PROGS) $(ALL_DATA)),$(eval $(call install_rule,$(prog))))
@@ -526,12 +528,12 @@ $(addprefix $(OUTDIR),$(filter %.a,$(ALL_LIBS))):
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(AR) rcs $@ $(call getparts,$(PARTS),$+)
 
-$(addprefix $(OUTDIR),$(ALL_PROGS_TESTS)):
+$(addprefix $(OUTDIR),$(call filter_nobuild,$(ALL_PROGS_TESTS))):
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(call flock_s,$(filter %.la,$^))$(if $(filter %.la %.lo,$+),$(LIBTOOL_LINK),$(LINK)) $(ALL_FLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
 
-$(addprefix install-,$(ALL_LIBS) $(ALL_PROGS) $(ALL_DATA)):
+$(addprefix install-,$(call filter_noinst,$(ALL_LIBS) $(ALL_PROGS) $(ALL_DATA))):
 	$(call printcmd,INSTALL,$<)
 	$(AT)mkdir -p $(DESTDIR)$(call getprop,$<,dir)
 	$(Q)$(call flock_x,$(filter %.la,$<))$(if $(filter %.la %.lo,$+),$(LIBTOOL_INSTALL),$(INSTALL_PROGRAM)) $< $(DESTDIR)$(call getprop,$<,dir)
