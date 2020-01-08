@@ -46,6 +46,9 @@ $(foreach dir,$(addprefix $(srcdir),$(subdir-y)),\
 $(foreach dir,$(addprefix $(srcdir),$(subdir-y)),\
 	$(foreach flag,$(aflag_names),$(eval $(call inherit_aflags,$(flag),$(srcdir),$(dir)))))
 
+# each dir in subdir-y must end with a slash
+$(and $(filter-out %/,$(subdir-y)),$(error subdir-y directories must end with a slash ($(srcdir)subdir.mk: $(filter-out %/,$(subdir-y)))))
+
 $(eval $(call clearvars))
 
 $(foreach dir,$(addprefix $(srcdir),$(subdir-y)),$(eval $(call inc_subdir,$(dir))))
