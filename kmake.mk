@@ -33,8 +33,8 @@ DEFAULT_DRIVER  ?= "sh -c"
 
 STRIPWD         ?=
 
-# adds a traling slash to $(1), unless it already ends with a slash
-ensure_slash     = $(or $(filter %/,$(1)),$(1)/)
+# adds a traling slash to each of $(1), unless they already end with a slash
+ensure_slash     = $(addsuffix /,$(patsubst %/,%,$(1)))
 
 ifneq ($(S),)
 SRCDIR := $(call ensure_slash,$(S))
@@ -276,6 +276,7 @@ define setvpath
 $(if $(2),$(foreach f,$(1),vpath $(f) $(2)$(newline)))
 endef
 
+filter_partial = $(filter $(or $(addprefix $(2),$(addsuffix %,$(PARTDIR))),%),$(1))
 filter_nobuild = $(foreach t,$(1),$(if $(call getsrc_c,$(t)),$(t)))
 filter_noinst = $(foreach t,$(1),$(if $(filter-out noinst,$(call getprop,$(t),dir)),$(t)))
 
@@ -372,7 +373,6 @@ $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
 
 
 $(foreach v,$(gen_vars) $(test_vars) $(prog_vars) $(lib_vars) $(data_vars),$(eval $(call inherit_props,$(v))))
-$(foreach prog,$(ALL_LIBS) $(ALL_PROGS_TESTS),$(eval $(call prog_rule,$(prog))))
 $(foreach prog,$(call filter_nobuild,$(ALL_LIBS) $(ALL_PROGS_TESTS)),$(eval $(call prog_rule,$(prog))))
 $(foreach test,$(ALL_TESTS),$(eval $(call test_rule,$(test))))
 $(foreach v,$(gen_vars),$(eval $(call gen_rule,$(v))))
@@ -427,7 +427,7 @@ endef
 define submake_rule
 .PHONY: submakes-$(1)
 $(1): submakes-$(1)
-submakes-$(1): $(or $(addprefix submake-$(1)-,$(filter $(PARTDIR)%,$(all_submake))),km-$(1))
+submakes-$(1): $(or $(addprefix submake-$(1)-,$(call filter_partial,$(all_submake))),km-$(1))
 $(foreach d,$(all_submake),submake-$(1)-$(d): km-$(1)$(newline))
 
 $(foreach d,$(all_submake),$(call submake_rule_dir,$(1),$(d))$(newline))
@@ -439,7 +439,7 @@ define submake_rule_pre
 .PHONY: submakes-$(1)
 $(1): km-$(1)
 km-$(1): submakes-$(1)
-$(foreach d,$(call reverse,$(filter $(PARTDIR)%,$(all_submake))),submakes-$(1): submake-$(1)-$(d)$(newline))
+$(foreach d,$(call reverse,$(call filter_partial,$(all_submake))),submakes-$(1): submake-$(1)-$(d)$(newline))
 
 $(foreach d,$(all_submake),$(call submake_rule_dir,$(1),$(d))$(newline))
 endef
@@ -449,16 +449,17 @@ $(foreach t,$(sub_targets),$(eval $(call submake_rule,$(t))))
 $(foreach t,$(sub_targets_pre),$(eval $(call submake_rule_pre,$(t))))
 
 submakes: submakes-all
-# PARTDIR restricts the selected targets to a given directory (partial build)
-generated: $(filter $(PARTDIR)%,$(ALL_GEN))
-libs: $(filter $(PARTDIR)%,$(ALL_LIBS))
-progs: $(filter $(PARTDIR)%,$(ALL_PROGS))
-data: $(filter $(PARTDIR)%,$(ALL_DATA))
+# filter_partial() restricts the selected targets to the given directories (partial build)
+generated: $(call filter_partial,$(ALL_GEN))
+libs: $(call filter_partial,$(ALL_LIBS))
+progs: $(call filter_partial,$(ALL_PROGS))
+data: $(call filter_partial,$(ALL_DATA))
 
 km-all: generated libs progs data
-km-check: generated $(addprefix run-test-,$(call varname,$(filter $(PARTDIR)%,$(ALL_TESTS))))
-km-clean: cleanfiles := $(filter $(OUTDIR)$(PARTDIR)%,$(cleanfiles))
-km-clean: all_clean := $(filter $(PARTDIR)%,$(all_clean))
+km-check: generated $(addprefix run-test-,$(call varname,$(call filter_partial,$(ALL_TESTS))))
+# filter_partial() restricts the deleted files to the given directories (partial build)
+km-clean: cleanfiles := $(call filter_partial,$(cleanfiles),$(OUTDIR))
+km-clean: all_clean := $(call filter_partial,$(all_clean))
 km-clean:
 	$(call printcmd,RM,$(filter-out %.dep %.cmd %.oldcmd,$(cleanfiles)) $(addprefix $(OUTDIR),$(all_clean)))
 	$(Q)$(LIBTOOL_RM) $(filter-out %.dep %.cmd %.oldcmd,$(cleanfiles)) $(addprefix $(OUTDIR),$(all_clean))
@@ -473,12 +474,12 @@ km-install-strip: LIBTOOL_INSTALL += $(STRIPOPT)
 km-install-strip: install
 
 install-libs: STRIPOPT = -s
-install-libs: $(addprefix install-,$(call filter_noinst,$(filter $(PARTDIR)%,$(ALL_LIBS))))
+install-libs: $(addprefix install-,$(call filter_noinst,$(call filter_partial,$(ALL_LIBS))))
 install-progs: STRIPOPT = -s --strip-program=$(STRIP)
 install-progs: INSTALL_PROGRAM += -m 0755
-install-progs: $(addprefix install-,$(call filter_noinst,$(filter $(PARTDIR)%,$(ALL_PROGS))))
+install-progs: $(addprefix install-,$(call filter_noinst,$(call filter_partial,$(ALL_PROGS))))
 install-data: INSTALL_PROGRAM += -m 0644
-install-data: $(addprefix install-,$(call filter_noinst,$(filter $(PARTDIR)%,$(ALL_DATA))))
+install-data: $(addprefix install-,$(call filter_noinst,$(call filter_partial,$(ALL_DATA))))
 
 # We have to use $(shell) for mkdir so that make executes it before other make
 # (especially $(file)), as the recipe is mostly make functions.

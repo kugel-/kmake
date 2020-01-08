@@ -521,6 +521,25 @@ kmake will place every output file under that sub-directory. The directory
 structure of the source tree is reproduced, except if no outfile would be
 produced in a given directory.
 
+Partial build
+`````````````
+
+kmake can be told to build only targets in specific directories. These
+directories are defined by setting M on the command line. For example,
+``make M=foo`` builds only libraries and programs under foo/.
+
+However, this is not quite the same as building only in a sub-directory
+with Automake. Even with partial build, kmake will respect dependencies
+of each target. This means any required dependency will be updated if
+necessary, even if outside the selected directories. This is usually
+exactly what you want, as you don't need to explicitly build dependency
+libraries beforehand.
+
+Multiple directories are supported (separated by spaces) but remember to
+properly escape the space on the command line (e.g. ``M=foo\ bar``).
+
+The partial build filter also applies to check, clean and install targets.
+
 Costumization and extensions
 ----------------------------
 
