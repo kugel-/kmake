@@ -1,7 +1,8 @@
 #include <stdio.h>
 
-#include "a/a.h"
-#include "s/s.h"
-#include "a/libx.h"
+#include "a.h"
+#include "s.h"
+#include "h1.h"
+#include "libx.h"
 
 int main() { foo(); bar(); libx(); }

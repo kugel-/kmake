@@ -93,7 +93,7 @@ gen_vars      := byproduct
 gen_vars      += $(extra-gen)
 flag_names    := CPPFLAGS CFLAGS CXXFLAGS LDFLAGS
 flag_names    += $(extra-flags)
-aflag_names   := DEPS LIBS
+aflag_names   := INCLUDES DEPS LIBS
 aflag_names   += $(extra-append-flags)
 prop_names    := dir suffix driver compiler
 prop_names    += $(extra-properties)
@@ -125,8 +125,8 @@ $(error DISTDIR must be absolute, actual is $(DISTDIR))
 endif
 DISTDIR       := $(call ensure_slash,$(DISTDIR))
 
-
-KM_CPPFLAGS ?= -I. $(if $(SRCDIR),-I$(SRCDIR))
+# Set -I to $(OUTDIR) and $(SRCDIR), or -I. if both are empty
+KM_CPPFLAGS ?= $(call uniq,-I$(or $(OUTDIR),.) -I$(or $(SRCDIR),.))
 KM_CFLAGS   ?= -O2 -g
 KM_CXXFLAGS ?= -O2 -g
 
@@ -237,6 +237,7 @@ ALL_PROGS       = $(foreach v,$(prog_vars),$(all_$(v)))
 ALL_LIBS        = $(foreach v,$(lib_vars),$(all_$(v)))
 ALL_DATA        = $(foreach v,$(data_vars),$(all_$(v)))
 ALL_GEN         = $(foreach v,$(gen_vars),$(all_$(v)))
+ALL_GEN_DIRS    = $(sort $(dir $(ALL_GEN)))
 ALL_TESTS       = $(foreach v,$(test_vars),$(all_$(v)))
 ALL_PROGS_TESTS = $(call uniq,$(ALL_PROGS) $(ALL_TESTS))
 
@@ -280,6 +281,12 @@ filter_partial = $(filter $(or $(addprefix $(2),$(addsuffix %,$(PARTDIR))),%),$(
 filter_nobuild = $(foreach t,$(1),$(if $(call getsrc_c,$(t)),$(t)))
 filter_noinst = $(foreach t,$(1),$(if $(filter-out noinst,$(call getprop,$(t),dir)),$(t)))
 
+is_gen = $(strip $(filter $(ALL_GEN_DIRS),$(1)))
+# Generate an -I<dir> pair for INCLUDES lists:
+# -I(OUTDIR) if SRCDIR != OUTDIR *and* <dir> contains generated files
+# -I(SRCDIR) always
+makeinc = $(foreach d,$(1),$(and $(call strneq,$(OUTDIR),$(SRCDIR)),$(call is_gen,$(d)),-I$(OUTDIR)$(d)) -I$(SRCDIR)$(d))
+
 # Call with $1: object file, $2: src file, $3: target that $1 is part of
 define obj_rule
 cleanfiles += $(OUTDIR)$(1)
@@ -298,6 +305,10 @@ $(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
 $(OUTDIR)$(1): | $$($(3)-oodeps)
 
 $(call setvpath,$(1),$(OUTDIR))
+endef
+
+define verify_rule
+$(and $(filter-out %/,$(call getvar,$(1),INCLUDES)),$(error INCLUDES-y directories must end with a slash ($(call getprop,$(1),origin): $(filter-out %/,$(call getvar,$(1),INCLUDES)))))
 endef
 
 define prog_rule
@@ -324,7 +335,9 @@ $(call varname,$(1))-obj += $(call getobj,$(1))
 
 # Cache some per-target variables so that they don't have to be recomputed
 # for each object file that make up the target.
-$(1)-CPPFLAGS := $(KM_CPPFLAGS) $(KM_CPPFLAGS_$(if $(call is_shlib,$(1)),LIB,PROG)) $(call getvar,$(1),CPPFLAGS)
+$(1)-CPPFLAGS := $(call makeinc,$(dir $(call getprop,$(1),origin)))
+$(1)-CPPFLAGS += $(KM_CPPFLAGS) $(KM_CPPFLAGS_$(if $(call is_shlib,$(1)),LIB,PROG)) $(call getvar,$(1),CPPFLAGS)
+$(1)-CPPFLAGS += $(call makeinc,$(call getvar,$(1),INCLUDES))
 $(1)-CFLAGS   := $(KM_CFLAGS)   $(KM_CFLAGS_$(if $(call is_shlib,$(1)),LIB,PROG))   $(call getvar,$(1),CFLAGS)
 $(1)-CXXFLAGS := $(KM_CXXFLAGS) $(KM_CXXFLAGS_$(if $(call is_shlib,$(1)),LIB,PROG)) $(call getvar,$(1),CXXFLAGS)
 $(1)-LDFLAGS  := $(KM_LDFLAGS)  $(KM_LDFLAGS_$(if $(call is_shlib,$(1)),LIB,PROG))  $(call getvar,$(1),LDFLAGS)
@@ -371,8 +384,8 @@ endef
 
 $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
 
-
 $(foreach v,$(gen_vars) $(test_vars) $(prog_vars) $(lib_vars) $(data_vars),$(eval $(call inherit_props,$(v))))
+$(foreach prog,$(call filter_nobuild,$(ALL_LIBS) $(ALL_PROGS_TESTS) $(ALL_DATA)),$(eval $(call verify_rule,$(prog))))
 $(foreach prog,$(call filter_nobuild,$(ALL_LIBS) $(ALL_PROGS_TESTS)),$(eval $(call prog_rule,$(prog))))
 $(foreach test,$(ALL_TESTS),$(eval $(call test_rule,$(test))))
 $(foreach v,$(gen_vars),$(eval $(call gen_rule,$(v))))

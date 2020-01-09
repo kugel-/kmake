@@ -1,5 +1,8 @@
 bin-y           := c clc csh cxx candcxx cxxcc a/b/subc a/b/subc0
 
+c-INCLUDES-y    := a/
+clc-INCLUDES-y  := a/
+
 c-CFLAGS-y      := -O1
 
 c-y             := c.c

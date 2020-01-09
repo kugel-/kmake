@@ -23,10 +23,6 @@ $(foreach v,$(prog_vars) $(lib_vars) $(data_vars) $(gen_vars) $(test_vars) clean
 $(foreach v,$(prog_vars) $(lib_vars) $(data_vars),\
 	$(if $($(v)-dir),,$(error Must specify $(v)-dir in $(srcdir)subdir.mk)))
 
-# as a special case, prepend this directory to the include path of all libs
-# and programs compiled here. Must be done by appending CPPFLAGS-y
-CPPFLAGS-y  := -I$(or $(OUTDIR)$(srcdir),.) -I$(or $(SRCDIR)$(srcdir),.) $(CPPFLAGS-y)
-
 # prepends CFLAGS-y to $(bin)-CFLAGS-y (and friends)
 $(foreach flag,$(flag_names),\
 	$(foreach v,$(prog_vars) $(lib_vars) $(gen_vars) $(test_vars),\
@@ -47,7 +43,8 @@ $(foreach dir,$(addprefix $(srcdir),$(subdir-y)),\
 	$(foreach flag,$(aflag_names),$(eval $(call inherit_aflags,$(flag),$(srcdir),$(dir)))))
 
 # each dir in subdir-y must end with a slash
-$(and $(filter-out %/,$(subdir-y)),$(error subdir-y directories must end with a slash ($(srcdir)subdir.mk: $(filter-out %/,$(subdir-y)))))
+$(foreach var,subdir-y INCLUDES-y,\
+	$(and $(filter-out %/,$($(var))),$(error  $(var) directories must end with a slash ($(srcdir)subdir.mk: $(filter-out %/,$($(var)))))))
 
 $(eval $(call clearvars))
 

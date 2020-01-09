@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "a/a.h"
+#include "a.h"
 
 #ifdef REQUIRE_CLANG
 #ifndef __clang__
