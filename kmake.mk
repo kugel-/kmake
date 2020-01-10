@@ -286,6 +286,7 @@ is_gen = $(strip $(filter $(ALL_GEN_DIRS),$(1)))
 # -I(OUTDIR) if SRCDIR != OUTDIR *and* <dir> contains generated files
 # -I(SRCDIR) always
 makeinc = $(foreach d,$(1),$(and $(call strneq,$(OUTDIR),$(SRCDIR)),$(call is_gen,$(d)),-I$(OUTDIR)$(d)) -I$(SRCDIR)$(d))
+getgendeps = $(foreach f,$(ALL_GEN),$(and $(filter $(dir $(f)),$(1)),$(f)))
 
 # Call with $1: object file, $2: src file, $3: target that $1 is part of
 define obj_rule
@@ -341,10 +342,11 @@ $(1)-CPPFLAGS += $(call makeinc,$(call getvar,$(1),INCLUDES))
 $(1)-CFLAGS   := $(KM_CFLAGS)   $(KM_CFLAGS_$(if $(call is_shlib,$(1)),LIB,PROG))   $(call getvar,$(1),CFLAGS)
 $(1)-CXXFLAGS := $(KM_CXXFLAGS) $(KM_CXXFLAGS_$(if $(call is_shlib,$(1)),LIB,PROG)) $(call getvar,$(1),CXXFLAGS)
 $(1)-LDFLAGS  := $(KM_LDFLAGS)  $(KM_LDFLAGS_$(if $(call is_shlib,$(1)),LIB,PROG))  $(call getvar,$(1),LDFLAGS)
-# Add headers specified via $var-y as order-only dep, to ensure the headers
-# are genrated first (if generated anyway). If a .o really depends on it,
-# a normal dep will be added by the .dep files.
-$(1)-oodeps   := $(call gethdrdeps,$(1))
+# Add headers specified via $var-y, as well as generated files that can
+# be found in any of the target's source and INCLUDES directories, as order-only
+# dep. This ensures the headers are genrated first (if generated anyway). If a
+# .o really depends on it, a true dependency will be added by the .dep files.
+$(1)-oodeps   := $(call gethdrdeps,$(1)) $(call getgendeps,$(dir $(call getprop,$(1),origin)) $(call getvar,$(1),INCLUDES))
 
 $(foreach f,$(call getsrc_c,$(1)),$(call obj_rule,$(call getobjfile,$(f),$(1)),$(f),$(1))$(newline))
 endef
