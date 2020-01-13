@@ -274,7 +274,7 @@ define newline =
 endef
 
 define setvpath
-$(if $(2),$(foreach f,$(1),vpath $(f) $(2)$(newline)))
+$(if $(OUTDIR),$(foreach f,$(1),vpath $(f) $(OUTDIR)$(newline)))
 endef
 
 filter_partial = $(filter $(or $(addprefix $(2),$(addsuffix %,$(PARTDIR))),%),$(1))
@@ -305,7 +305,7 @@ $(OUTDIR)$(1): $(2)
 $(OUTDIR)$(1): $(OUTDIR)$(call getcmdfile,$(1))
 $(OUTDIR)$(1): | $$($(3)-oodeps)
 
-$(call setvpath,$(1),$(OUTDIR))
+$(call setvpath,$(1))
 endef
 
 define verify_rule
@@ -329,8 +329,6 @@ $(OUTDIR)$(1): CMD = $$(LINK) $$(ALL_FLAGS) -- $(call getvar,$(1),LIBS)
 $(OUTDIR)$(1): PARTS = $(call getobj,$(1))
 $(OUTDIR)$(1): $(call getobj,$(1))
 $(OUTDIR)$(1): $(if $(call getobj,$(1)),$(OUTDIR)$(call getcmdfile,$(1)))
-
-$(call setvpath,$(1) $(call gethdrdeps,$(1)),$(OUTDIR))
 
 $(call varname,$(1))-obj += $(call getobj,$(1))
 
@@ -370,8 +368,6 @@ cleanfiles += $(addprefix $(OUTDIR),$(foreach f,$(all_$(1)),$(call getoldcmdfile
 $(foreach f,$(all_$(1)),$(call $(1)_rule,$(f))$(newline))
 
 $(call $(1)_recipe,$(all_$(1)))
-
-$(call setvpath,$(all_$(1)),$(OUTDIR))
 endef
 
 define inherit_props
@@ -392,6 +388,7 @@ $(foreach prog,$(call filter_nobuild,$(ALL_LIBS) $(ALL_PROGS_TESTS)),$(eval $(ca
 $(foreach test,$(ALL_TESTS),$(eval $(call test_rule,$(test))))
 $(foreach v,$(gen_vars),$(eval $(call gen_rule,$(v))))
 $(foreach prog,$(call filter_noinst,$(ALL_LIBS) $(ALL_PROGS) $(ALL_DATA)),$(eval $(call install_rule,$(prog))))
+$(foreach prog,$(ALL_LIBS) $(ALL_PROGS_TESTS) $(ALL_GEN),$(eval $(call setvpath,$(prog))))
 
 changedir = $(if $(OUTDIR),cd $(OUTDIR))
 stripwd = $(if $(STRIPWD),$(patsubst $(OUTDIR)%,%,$(1)),$(1))
