@@ -325,7 +325,7 @@ $(OUTDIR)$(1): LINK = $(call getcc,$(call getsrc,$(1)),$(1))
 # carefully set -rpath only for installable, shared libraries
 $(OUTDIR)$(1): RPATH = $(and $(call is_shlib,$(1)),$(call filter_noinst,$(1)),-rpath $(call getprop,$(1),dir))
 $(OUTDIR)$(1): ALL_FLAGS = $$(RPATH) $$($(1)-LDFLAGS) $$(LDFLAGS)
-$(OUTDIR)$(1): CMD = $$(LINK) $$(ALL_FLAGS) -- $(call getvar,$(1),LIBS)
+$(OUTDIR)$(1): CMD = $$(LINK) $$(ALL_FLAGS) -o $(1) $(call getobj,$(1)) $(call getvar,$(1),LIBS)
 $(OUTDIR)$(1): PARTS = $(call getobj,$(1))
 $(OUTDIR)$(1): $(call getobj,$(1))
 $(OUTDIR)$(1): $(if $(call getobj,$(1)),$(OUTDIR)$(call getcmdfile,$(1)))
