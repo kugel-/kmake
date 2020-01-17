@@ -322,10 +322,10 @@ $(call varname,$(1))-obj += $(call getobj,$(1))
 
 # Cache some per-target variables so that they don't have to be recomputed
 # for each object file that make up the target.
-$(1)-CPPFLAGS := $(KM_CPPFLAGS) $(KM_CPPFLAGS_$(if $(call is_lib,$(1)),LIB,PROG)) $(call getvar,$(1),CPPFLAGS)
-$(1)-CFLAGS   := $(KM_CFLAGS)   $(KM_CFLAGS_$(if $(call is_lib,$(1)),LIB,PROG))   $(call getvar,$(1),CFLAGS)
-$(1)-CXXFLAGS := $(KM_CXXFLAGS) $(KM_CXXFLAGS_$(if $(call is_lib,$(1)),LIB,PROG)) $(call getvar,$(1),CXXFLAGS)
-$(1)-LDFLAGS  := $(KM_LDFLAGS)  $(KM_LDFLAGS_$(if $(call is_lib,$(1)),LIB,PROG))  $(call getvar,$(1),LDFLAGS)
+$(1)-CPPFLAGS := $(KM_CPPFLAGS) $(KM_CPPFLAGS_$(if $(call is_shlib,$(1)),LIB,PROG)) $(call getvar,$(1),CPPFLAGS)
+$(1)-CFLAGS   := $(KM_CFLAGS)   $(KM_CFLAGS_$(if $(call is_shlib,$(1)),LIB,PROG))   $(call getvar,$(1),CFLAGS)
+$(1)-CXXFLAGS := $(KM_CXXFLAGS) $(KM_CXXFLAGS_$(if $(call is_shlib,$(1)),LIB,PROG)) $(call getvar,$(1),CXXFLAGS)
+$(1)-LDFLAGS  := $(KM_LDFLAGS)  $(KM_LDFLAGS_$(if $(call is_shlib,$(1)),LIB,PROG))  $(call getvar,$(1),LDFLAGS)
 # Add headers specified via $var-y as order-only dep, to ensure the headers
 # are genrated first (if generated anyway). If a .o really depends on it,
 # a normal dep will be added by the .dep files.
