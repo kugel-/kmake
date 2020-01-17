@@ -390,6 +390,20 @@ $(foreach v,$(gen_vars),$(eval $(call gen_rule,$(v))))
 $(foreach prog,$(call filter_noinst,$(ALL_LIBS) $(ALL_PROGS) $(ALL_DATA)),$(eval $(call install_rule,$(prog))))
 $(foreach prog,$(ALL_LIBS) $(ALL_PROGS_TESTS) $(ALL_GEN),$(eval $(call setvpath,$(prog))))
 
+$(eval $(call clearvars))
+# replace the last value with an error indication
+# when make runs recipes, srcdir would have the value of the last processed
+# subdir.mk. Therefore, if a recipe is declared in a subdir.mk, the value
+# of $(srcdir) is probably not what you'd expect
+#
+# store the current values of srcdir and objdir in target specific variables,
+# e.g.
+# $(objdir)myprog: SRC := $(srcdir)
+# $(objdir)myprog: OBJ := $(objdir)
+#    command -i $(SRC)in -o $(OBJ)out
+srcdir := /do-not-use-srcdir-in-recipes/
+objdir := /do-not-use-objdir-in-recipes/
+
 changedir = $(if $(OUTDIR),cd $(OUTDIR))
 stripwd = $(if $(STRIPWD),$(patsubst $(OUTDIR)%,%,$(1)),$(1))
 printcmd = $(if $(Q),@printf "  %-8s%s\n" "$(1)" "$(call stripwd,$(2))")
