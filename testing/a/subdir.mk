@@ -10,3 +10,5 @@ liba.a-CFLAGS-y   := -O2
 subdir-CPPFLAGS-y := -DSRCDIR=\"$$(srcdir)\"
 subdir-CFLAGS-y   := -O3
 subdir-LIBS-y     := -lc
+
+libx.la-suffix    := .c

@@ -1,3 +1,5 @@
+.SUFFIXES:
+
 .DEFAULT_GOAL := all
 
 FORCE: ;
@@ -27,9 +29,6 @@ LIBTOOL_COMPILE  = $(LIBTOOL) $(if $(Q),--silent) --tag $(LTTAG) --mode=compile 
 LIBTOOL_LINK     = $(LIBTOOL) $(if $(Q),--silent) --tag $(LTTAG) --mode=link $(LINK)
 LIBTOOL_RM       = $(LIBTOOL) $(if $(Q),--silent) --mode=clean $(RM)
 LIBTOOL_INSTALL  = $(LIBTOOL) $(if $(Q),--silent) --mode=install $(INSTALL_PROGRAM)
-
-DEFAULT_SUFFIX  ?= .c
-DEFAULT_DRIVER  ?= "sh -c"
 
 STRIPWD         ?=
 
@@ -87,7 +86,7 @@ lib_vars      := libs noinstlibs
 lib_vars      += $(extra-libs)
 data_vars     := data sysconf headers
 data_vars     += $(extra-data)
-test_vars     := tests testscripts
+test_vars     := tests
 test_vars     += $(extra-tests)
 gen_vars      := byproduct
 gen_vars      += $(extra-gen)
@@ -99,21 +98,13 @@ prop_names    := dir suffix driver compiler
 prop_names    += $(extra-properties)
 
 bin-dir       := $(bindir)
-bin-suffix    := $(DEFAULT_SUFFIX)
 sbin-dir      := $(sbindir)
-sbin-suffix   := $(DEFAULT_SUFFIX)
 libs-dir      := $(libdir)
-libs-suffix   := $(DEFAULT_SUFFIX)
 data-dir      := $(datadir)
 sysconf-dir   := $(sysconfdir)
 headers-dir   := $(includedir)
-tests-suffix  := $(DEFAULT_SUFFIX)
-tests-driver  := $(DEFAULT_DRIVER)
-testscripts-driver  := $(DEFAULT_DRIVER)
-noinstprogs-dir     := noinst
-noinstprogs-suffix  := $(DEFAULT_SUFFIX)
-noinstlibs-dir      := noinst
-noinstlibs-suffix   := $(DEFAULT_SUFFIX)
+noinstprogs-dir  := noinst
+noinstlibs-dir   := noinst
 
 all_dist      := $(KMAKEDIR)kmake.mk $(KMAKEDIR)process-subdir.mk
 all_dist      += $(KMAKEDIR)gen-sed.mk $(KMAKEDIR)gen-cat.mk
@@ -549,12 +540,15 @@ $(all_lobj): $(OUTDIR)%.lo:
 	$(AT)mkdir -p $(dir $@)/.deps
 	$(Q)$(LIBTOOL_COMPILE) $(call getdepopt,$@) $(ALL_FLAGS) -c -o $@ $(call getparts,$(PARTS),$^)
 
-$(addprefix $(OUTDIR),$(filter %.la,$(ALL_LIBS))):
+# targets are filtered through filter_nobuild so that targets without
+# source do not emit a rule. This gives a nice "no rule to make target foo"
+# error message as an indication.
+$(addprefix $(OUTDIR),$(filter %.la,$(call filter_nobuild,$(ALL_LIBS)))):
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(call flock_s,$(PARTS))$(LIBTOOL_LINK) $(ALL_FLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
 
-$(addprefix $(OUTDIR),$(filter %.a,$(ALL_LIBS))):
+$(addprefix $(OUTDIR),$(filter %.a,$(call filter_nobuild,$(ALL_LIBS)))):
 	$(call printcmd,AR,$@)
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(AR) rcs $@ $(call getparts,$(PARTS),$+)
@@ -568,8 +562,6 @@ $(addprefix install-,$(call filter_noinst,$(ALL_LIBS) $(ALL_PROGS) $(ALL_DATA)))
 	$(call printcmd,INSTALL,$<)
 	$(AT)mkdir -p $(DESTDIR)$(call getprop,$<,dir)
 	$(Q)$(call flock_x,$(filter %.la,$<))$(if $(filter %.la %.lo,$+),$(LIBTOOL_INSTALL),$(INSTALL_PROGRAM)) $< $(DESTDIR)$(call getprop,$<,dir)
-
-.SUFFIXES: $(objexts) .mk .dep .cmd .oldcmd
 
 # Gather all files list in any $var-y except if that's known to be generated
 get_distfiles = $(filter-out $(ALL_GEN),$(foreach t,$(filter-out $(ALL_GEN),$(ALL_PROGS) $(ALL_LIBS) $(ALL_DATA) $(ALL_TESTS)) $(ALL_GEN),$(or $(call getysrc,$(t)),$(t))))
@@ -590,8 +582,6 @@ km-dist: $(filter-out $(all_nodist),$(call get_distfiles,$(i)) $(all_dist)) | $(
 
 DIST_SUFFIXES := xz gz bz2
 DIST_FOLDER   := $(notdir $(abspath $(DISTDIR)))
-
-.SUFFIXES: $(addprefix .,$(DIST_SUFFIXES))
 
 $(addprefix dist-,$(DIST_SUFFIXES)): dist-%: $(DIST_FOLDER).tar.%
 

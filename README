@@ -177,23 +177,27 @@ and may have properties (see `Properties`_).
 
 There are no predefined target variables, kmake learns about them dynamically.
 
-For target variables, `target`-y usually lists source files. If no such
-specification exists, kmake attempts to find exactly one source file
-that matches the name of the target, plus a suffix that is defined by
-the `target`-suffix property (which defaults to `DEFAULT_SUFFIX` if
-defined, or simply .c).
+For target variables, `target`-y usually lists source files. If no such list
+exists and the target variable defines (or inherits) the suffix property, then
+kmake attempts to find exactly one source file that matches the name of the
+target plus its suffix property value. If the target has a suffix on its own,
+it's replaced.
 
 Additionally, `target`-y can list library targets that are defined in the same
 subdir.mk file.
 
 Here's an example for a target specification::
 
-    bin-y     := mytool
+    bin-y     := tool
     libs-y    := libmy.a
 
-    libmy.a-y := mylib.c # actually superfluous
-    mytool-y  := tool.c
-    mytool-y  := libmy.a
+    libmy.a-y := libmy.c
+    tool-y    := tool.c
+    tool-y    += libmy.a
+
+With the suffix property, this can be shortened a bit::
+    bin-suffix := .c
+    bin-y      := tool # tool.c automatically picked up
 
 
 Properties
@@ -219,13 +223,21 @@ Pre-defined properties include:
     See https://www.gnu.org/software/libtool/manual/html_node/Tags.html.
 
 `-dir`
-    The installation directory used at `make install` time.
+    The installation directory used at `make install` time. The special value
+    `noinst` indicates that the target isn't meant to be installed at all.
 
 `-driver`
-    The command that is used to run test targets
+    The command that is used to run test targets. By default, this property
+    is not set and tests will execute within a shell spawned by make. But if
+    it's set then kmake will invoke this driver program with the test
+    as the first parameter.
 
 `-suffix`
-    The suffix that is used to find the default source file
+    The suffix that is used to find the default source file if the target
+    does not list any source file in `target`-y. By default, this property
+    is not set. But if it's set then kmake assumes that the only
+    source file is named `target` plus the suffix. If the target has
+    a suffix it's replaced.
 
 As you might see, not all properties make sense on all targets and therefore
 some suffixes are simply ignored on some targets.
@@ -463,8 +475,6 @@ uses the following defaults::
   libs-dir       = /usr/local/lib
   data-dir       = /usr/local/share
   sysconf-dir    = /usr/local/etc
-  DEFAULT_SUFFIX = .c
-  DEFAULT_DRIVER = "sh -c"
 
   CROSS_COMPILE  =
   CC             = cc
@@ -478,16 +488,6 @@ If you want to override the above defaults, you can define ``prefix`` to
 affects all directories, or define `bindir`, `sbinddir`, `libdir`, `datadir`
 and `sysconfdir` to override individual ones.
 
-`DEFAULT_SUFFIX` can be set to ``.cpp`` if you project primarily consists of
-C++ sources. Remember that you can always set the `var`-suffix property
-for variables and targets to override even `DEFAULT_SUFFIX`.
-
-`DEFAULT_DRIVER` can be overridden to any command, by default we'll just pass
-them to the shell. If you have lots of Python-based unit tests you may want to
-pass them to the python interpreter directly. Remember that you can always set
-the `var`-driver property for variables and targets to override even
-`DEFAULT_DRIVER`.
-
 Toolchain
 `````````
 
@@ -496,6 +496,17 @@ which is prefixed to the relevant toolchain programs (`CC`, `CXX`, `AR` and
 `STRIP`). Additionally you can also change the individual programs, e.g. to use
 `clang` instead of the usual system's default of `gcc`. However, be aware that
 `CROSS_COMPILE` is applied regardless.
+
+Tests
+`````
+
+Tests are are listed in the `tests` variable. Tests are compiled and executed
+only on `make check`. kmake, by default, will simply execute via make recipies,
+meaning that they are passed to the shell. The exit status is indicated by a
+"PASS" or "FAIL" output. If you have lots of Python-based unit tests you may
+want to pass them to the python interpreter directly. To do that, set the
+driver property for the `tests` variables (or any custom tests variable added
+via `extra-tests`) or set the driver property of each python test individually.
 
 Silent / verbose output
 ````````````````````````
