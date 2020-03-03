@@ -172,6 +172,8 @@ getsrc = $(strip $(call getysrc,$(1)) $(patsubst ./%,%,$(filter-out $(objpats),$
 getsrc_c = $(strip $(filter-out $(hdrpats),$(call getsrc,$(1))))
 # call with $(1) = target (incl. extension)
 getdeps = $(call addpath,$(1),$(call getvar,$(1))) $(call getvar,$(1),DEPS)
+# recursive version of getdeps
+getdeps_r = $(call getdeps,$(1)) $(foreach d,$(call getdeps,$(1)),$(call getdeps_r,$(d)))
 # call with $(1) = target (incl. extension)
 getobjdeps = $(filter $(objpats),$(call getdeps,$(1)))
 # call with $(1) = target (incl. extension)
@@ -215,23 +217,6 @@ streq = $(if $(call strneq,$(1),$(2)),,x)
 # Remove duplicates without sorting
 # https://stackoverflow.com/a/16151140/5126486
 uniq = $(if $1,$(firstword $1) $(call uniq,$(filter-out $(firstword $1),$1)))
-
-# File locking between recipes...we do this because there is a bad
-# issue in libtool, when doing link and install concurrently. Linking
-# a library (.la) into another file fails if the library is installed
-# (possibly with relinking) at the same time.
-#
-# It seems sufficient to use exclusive lock for install recipies,
-# the link recipies can use shared locking and therefore run concurrently
-# with respect to each other.
-#
-# The functions generate an flock command prefix for use within recipes,
-# the remainer of the line will execute within the lock.
-#
-# The file list must be sorted to prevent potential deadlock between two
-# recipies, also sort conviniently de-dups the list.
-flock_s = $(foreach f,$(strip $(sort $(1))),flock -s $(f) )
-flock_x = $(foreach f,$(strip $(sort $(1))),flock -x $(f) )
 
 ALL_PROGS       = $(foreach v,$(prog_vars),$(all_$(v)))
 ALL_LIBS        = $(foreach v,$(lib_vars),$(all_$(v)))
@@ -391,6 +376,7 @@ $(foreach prog,$(call filter_noinst,$(ALL_LIBS) $(ALL_PROGS) $(ALL_DATA)),$(eval
 $(foreach prog,$(ALL_LIBS) $(ALL_PROGS_TESTS) $(ALL_GEN),$(eval $(call setvpath,$(prog))))
 
 $(eval $(call clearvars))
+
 # replace the last value with an error indication
 # when make runs recipes, srcdir would have the value of the last processed
 # subdir.mk. Therefore, if a recipe is declared in a subdir.mk, the value
@@ -531,6 +517,23 @@ endif
 # Likewise for linked binaries, the prerequisites may contain unexpected
 # extra files (at least .cmd, but maybe a linker script too).
 getparts = $(filter $(addprefix $(OUTDIR),$(1)) $(addprefix $(SRCDIR),$(1)),$(2))
+# File locking between recipes...we do this because there is a bad
+# issue in libtool, when doing link and install concurrently. Linking
+# a library (.la) into another file fails if the library is installed
+# (possibly with relinking) at the same time.
+#
+# It seems sufficient to use exclusive lock for install recipies, for
+# the library that is to be installed. On the link side we can use shared
+# locking and link libraries concurrently with respect to each other.
+# However, all involved lirbaries must be locked this way, including
+# recursive dependencies.
+#
+# The file list must be sorted to prevent potential deadlock between two
+# recipies, also sort conviniently de-dups the list.
+flock = $(foreach f,$(strip $(sort $(2))),flock $(1) $(f) )
+locks = $(addprefix $(OUTDIR),$(filter $(call filter_nobuild,$(ALL_LIBS)),$(1)))
+flock_s = $(call flock,-s,$(call locks,$(1) $(foreach t,$(1),$(call getdeps_r,$(t)))))
+flock_x = $(call flock,-x,$(call locks,$(1) $(foreach t,$(1),$(call getdeps_r,$(t)))))
 
 # prevent %.o to become a fallback rule for any file
 all_obj = $(filter %.o,$(cleanfiles))
@@ -549,7 +552,7 @@ $(all_lobj): $(OUTDIR)%.lo:
 $(addprefix $(OUTDIR),$(filter %.la,$(ALL_LIBS))):
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(call flock_s,$(filter %.la,$^))$(LIBTOOL_LINK) $(ALL_FLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
+	$(Q)$(call flock_s,$(PARTS))$(LIBTOOL_LINK) $(ALL_FLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
 
 $(addprefix $(OUTDIR),$(filter %.a,$(ALL_LIBS))):
 	$(call printcmd,AR,$@)
@@ -559,7 +562,7 @@ $(addprefix $(OUTDIR),$(filter %.a,$(ALL_LIBS))):
 $(addprefix $(OUTDIR),$(call filter_nobuild,$(ALL_PROGS_TESTS))):
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(call flock_s,$(filter %.la,$^))$(if $(filter %.la %.lo,$+),$(LIBTOOL_LINK),$(LINK)) $(ALL_FLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
+	$(Q)$(call flock_s,$(PARTS))$(if $(filter %.la %.lo,$+),$(LIBTOOL_LINK),$(LINK)) $(ALL_FLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
 
 $(addprefix install-,$(call filter_noinst,$(ALL_LIBS) $(ALL_PROGS) $(ALL_DATA))):
 	$(call printcmd,INSTALL,$<)
