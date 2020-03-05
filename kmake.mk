@@ -96,6 +96,8 @@ aflag_names   := INCLUDES DEPS LIBS
 aflag_names   += $(extra-append-flags)
 prop_names    := dir suffix driver compiler
 prop_names    += $(extra-properties)
+target_names  :=
+target_names  += $(extra-targets)
 
 bin-dir       := $(bindir)
 sbin-dir      := $(sbindir)
@@ -106,9 +108,13 @@ headers-dir   := $(includedir)
 noinstprogs-dir  := noinst
 noinstlibs-dir   := noinst
 
+all_subdirs   :=
 all_dist      := $(KMAKEDIR)kmake.mk $(KMAKEDIR)process-subdir.mk
 all_dist      += $(KMAKEDIR)gen-sed.mk $(KMAKEDIR)gen-cat.mk
 all_dist      += $(KMAKEDIR)README
+all_all_hooks     :=
+all_install_hooks :=
+all_clean_hooks   :=
 
 DISTDIR       ?= $(abspath $(or $(and $(PACKAGE_NAME),$(PACKAGE_VERSION),$(PACKAGE_NAME)-$(PACKAGE_VERSION)),dist-dir))
 ifneq ($(filter-out /%,$(DISTDIR)),)
@@ -358,6 +364,11 @@ endef
 
 $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
 
+all_dist          += $(addsuffix subdir.mk,$(all_subdirs))
+all_all_hooks     += $(addprefix all-hook-,$(all_subdirs))
+all_install_hooks += $(addprefix install-hook-,$(all_subdirs))
+all_clean_hooks   += $(addprefix clean-hook-,$(all_subdirs))
+
 $(foreach v,$(gen_vars) $(test_vars) $(prog_vars) $(lib_vars) $(data_vars),$(eval $(call inherit_props,$(v))))
 $(foreach prog,$(call filter_nobuild,$(ALL_LIBS) $(ALL_PROGS_TESTS) $(ALL_DATA)),$(eval $(call verify_rule,$(prog))))
 $(foreach prog,$(call filter_nobuild,$(ALL_LIBS) $(ALL_PROGS_TESTS)),$(eval $(call prog_rule,$(prog))))
@@ -396,6 +407,7 @@ sub_targets_pre = clean distclean
 .PHONY: FORCE all libs progs data generated check clean
 .PHONY: dist distclean
 .PHONY: install install-progs install-libs install-data install-strip
+.PHONY: $(all_all_hooks) $(all_install_hooks) $(all_clean_hooks)
 .PHONY: submakes $(addprefix submakes-,$(sub_targets) $(sub_targets_pre))
 .PHONY: postmakes $(addprefix postmakes-,$(sub_targets) $(sub_targets_pre))
 .PHONY: km-all km-clean km-check km-install km-install-strip
@@ -459,12 +471,13 @@ libs: $(call filter_partial,$(ALL_LIBS))
 progs: $(call filter_partial,$(ALL_PROGS))
 data: $(call filter_partial,$(ALL_DATA))
 
-km-all: generated libs progs data
+$(all_all_hooks): generated progs libs data
+km-all: $(call filter_partial,$(all_all_hooks),all-hook-)
 km-check: generated $(addprefix run-test-,$(call varname,$(call filter_partial,$(ALL_TESTS))))
 # filter_partial() restricts the deleted files to the given directories (partial build)
 km-clean: cleanfiles := $(call filter_partial,$(cleanfiles),$(OUTDIR))
 km-clean: all_clean := $(call filter_partial,$(all_clean))
-km-clean:
+km-clean: $(call filter_partial,$(all_clean_hooks),clean-hook-)
 	$(call printcmd,RM,$(filter-out %.dep %.cmd %.oldcmd,$(cleanfiles)) $(addprefix $(OUTDIR),$(all_clean)))
 	$(Q)$(LIBTOOL_RM) $(filter-out %.dep %.cmd %.oldcmd,$(cleanfiles)) $(addprefix $(OUTDIR),$(all_clean))
 	$(QQ)$(RM) $(filter %.dep %.cmd %.oldcmd,$(cleanfiles))
@@ -473,7 +486,8 @@ km-distclean: km-clean
 	$(if $(all_distclean),$(call printcmd,RM,$(addprefix $(OUTDIR),$(all_distclean))))
 	$(Q)$(LIBTOOL_RM) $(addprefix $(OUTDIR),$(all_distclean))
 
-km-install: install-libs install-progs install-data
+$(all_install_hooks): install-libs install-progs install-data
+km-install: km-all $(call filter_partial,$(all_install_hooks),install-hook-)
 km-install-strip: LIBTOOL_INSTALL += $(STRIPOPT)
 km-install-strip: install
 
@@ -484,6 +498,12 @@ install-progs: INSTALL_PROGRAM += -m 0755
 install-progs: $(addprefix install-,$(call filter_noinst,$(call filter_partial,$(ALL_PROGS))))
 install-data: INSTALL_PROGRAM += -m 0644
 install-data: $(addprefix install-,$(call filter_noinst,$(call filter_partial,$(ALL_DATA))))
+
+ifneq ($(target_names),)
+# generate extra targets
+.PHONY: $(foreach t,$(target_names),$(addprefix $(t)-hook-,$(all_subdirs)))
+$(foreach t,$(target_names),$(eval $(t): $(call filter_partial,$(addprefix $(t)-hook-,$(all_subdirs)),$(t)-hook-)))
+endif
 
 # We have to use $(shell) for mkdir so that make executes it before other make
 # (especially $(file)), as the recipe is mostly make functions.

@@ -1,20 +1,25 @@
 subdir-y :=
 
+# some variables must be set before reading subdir.mk
+$(foreach h,all install clean $(target_names),$(eval $(h)-hook := $(h)-hook-$(srcdir)))
+
 # SRCDIR points to the root directory (where kmake.mk is) if including
 # kmake.mk in a build-directory makefile (not using O=$builddir).
 # srcdir points to the directory of each subdir.mk and is relative
 # SRCDIR.
 include $(SRCDIR)$(srcdir)subdir.mk
-all_dist    := $(all_dist) $(srcdir)subdir.mk
+
+all_subdirs  += $(srcdir)
 
 # remember custom vars for installation
-prog_vars   := $(sort $(prog_vars) $(extra-progs))
-lib_vars    := $(sort $(lib_vars) $(extra-libs))
-data_vars   := $(sort $(data_vars) $(extra-data))
-test_vars   := $(sort $(test_vars) $(extra-tests))
-gen_vars    := $(sort $(gen_vars) $(extra-gen))
-flag_names  := $(sort $(flag_names) $(extra-flags))
-aflag_names := $(sort $(aflag_names) $(extra-append-flags))
+prog_vars    := $(sort $(prog_vars) $(extra-progs))
+lib_vars     := $(sort $(lib_vars) $(extra-libs))
+data_vars    := $(sort $(data_vars) $(extra-data))
+test_vars    := $(sort $(test_vars) $(extra-tests))
+gen_vars     := $(sort $(gen_vars) $(extra-gen))
+flag_names   := $(sort $(flag_names) $(extra-flags))
+aflag_names  := $(sort $(aflag_names) $(extra-append-flags))
+target_names := $(sort $(target_names) $(extra-targets))
 
 # There is only a single tests variable, and the programs need not be installed
 $(foreach v,$(prog_vars) $(lib_vars) $(data_vars) $(gen_vars) $(test_vars) clean distclean dist nodist submake postmake,\
