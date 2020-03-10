@@ -554,7 +554,7 @@ getparts = $(filter $(addprefix $(OUTDIR),$(1)) $(addprefix $(SRCDIR),$(1)),$(2)
 flock = $(foreach f,$(strip $(sort $(2))),flock $(1) $(f) )
 locks = $(addprefix $(OUTDIR),$(filter $(call filter_nobuild,$(ALL_LIBS)),$(1)))
 flock_s = $(call flock,-s,$(call locks,$(1) $(foreach t,$(1),$(call getdeps_r,$(t)))))
-flock_x = $(call flock,-x,$(call locks,$(1) $(foreach t,$(1),$(call getdeps_r,$(t)))))
+flock_x = $(call flock,-x,$(call locks,$(1)))
 
 # prevent %.o to become a fallback rule for any file
 all_obj = $(filter %.o,$(cleanfiles))
@@ -588,10 +588,10 @@ $(addprefix $(OUTDIR),$(call filter_nobuild,$(ALL_PROGS_TESTS))):
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(call flock_s,$(PARTS))$(if $(filter %.la %.lo,$+),$(LIBTOOL_LINK),$(LINK)) $(ALL_FLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
 
-$(addprefix install-,$(call filter_noinst,$(ALL_LIBS) $(ALL_PROGS) $(ALL_DATA))):
+$(addprefix install-,$(call filter_noinst,$(ALL_LIBS) $(ALL_PROGS) $(ALL_DATA))): install-%:
 	$(call printcmd,INSTALL,$<)
 	$(AT)mkdir -p $(DESTDIR)$(call getprop,$<,dir)
-	$(Q)$(call flock_x,$(filter %.la,$<))$(if $(filter %.la %.lo,$+),$(LIBTOOL_INSTALL),$(INSTALL_PROGRAM)) $< $(DESTDIR)$(call getprop,$<,dir)
+	$(Q)$(call flock_x,$(filter %.la,$*))$(if $(filter %.la %.lo,$+),$(LIBTOOL_INSTALL),$(INSTALL_PROGRAM)) $< $(DESTDIR)$(call getprop,$<,dir)
 
 # Gather all files list in any $var-y except if that's known to be generated
 get_distfiles = $(filter-out $(ALL_GEN),$(foreach t,$(filter-out $(ALL_GEN),$(ALL_PROGS) $(ALL_LIBS) $(ALL_DATA) $(ALL_TESTS)) $(ALL_GEN),$(or $(call getysrc,$(t)),$(t))))
