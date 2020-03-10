@@ -206,6 +206,8 @@ getoldcmdfile = $(call getdepsdir,$(1))$(notdir $(1)).oldcmd
 getcmdfile = $(call getdepsdir,$(1))$(notdir $(1)).cmd
 getdepfile = $(call getdepsdir,$(1))$(notdir $(1)).dep
 getdepopt = -MD -MP -MF$(call getdepfile,$(1)) -MQ$(1)
+
+## PUBLIC FUNCTIONS
 # returns empty if $(1) and $(1) are the same
 # works lists (strings containing spaces) as well
 strneq = $(subst $(1),,$(2))$(subst $(2),,$(1))
@@ -214,6 +216,10 @@ streq = $(if $(call strneq,$(1),$(2)),,x)
 # Remove duplicates without sorting
 # https://stackoverflow.com/a/16151140/5126486
 uniq = $(if $1,$(firstword $1) $(call uniq,$(filter-out $(firstword $1),$1)))
+# Returns the build artifacts for the given variables (bin, sbin, ...)
+# that will be build, after applying the partial build filter.
+get_artifacts = $(call filter_partial,$(foreach v,$(1),$(all_$(v))))
+## PUBLIC FUNCTIONS END
 
 ALL_PROGS       = $(foreach v,$(prog_vars),$(all_$(v)))
 ALL_LIBS        = $(foreach v,$(lib_vars),$(all_$(v)))
