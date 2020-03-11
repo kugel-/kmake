@@ -93,8 +93,8 @@ Because kmake supports directory-level CFLAGS (and other flags, including
 custom flags that are not known to kmake initially), the sub-makefiles remain
 concise.
 
-To further aid compactness, kmake supports one-line conditionals similar to
-kbuild.
+To further aid compactness, kmake supports one-line ("inline") conditionals
+similar to kbuild.
 
 Extensibility
 ^^^^^^^^^^^^^
@@ -105,10 +105,13 @@ and recipes for custom targets that kmake doesn't support out of the box.
 This can be used to tell kmake how to generate source files with the help of
 external commands. If a build target depends on such a generated file kmake
 introduces the proper dependency so that the file is generated as needed.
+Additionally, if a target doesn't explicitly lists a generated file as
+dependency, but instead lists its directory in the INCLUDES flag, kmake will
+add a dependency as well. This is particularly useful for generated headers.
 
 Those generators can benefit from the same mechanism that re-compiles C files
 when CFLAGS changes. A properly implemented generator re-generates output
-of any of the options to the external command changes.
+if any of the options to the external command changes.
 
 Generators can be chained, which makes it possible teach kmake to generate
 and build arbitrary file formats, without having to change kmake core itself.
@@ -124,11 +127,11 @@ Variables (vars)
 ^^^^^^^^^^^^^^^^
 
 The key element in kmake are variables, or just short vars. kmake defines some
-but also learns new ones dynamically (see XXX dynamic variables). Vars
-generally have a associated list via the -y suffix and may have properties (see
-XXX) via other suffixes. The associated list usually holds files, but can also
-list options or other things. How the list is interpreted depends on the
-variable.
+but also learns new ones dynamically (see `Adding vars`_). Vars generally have
+a associated list via the -y suffix and may have properties (see
+`Properties`_). via other suffixes. The associated list usually holds files,
+but can also list options or other things. How the list is interpreted depends
+on the variable.
 
 Pre-defined variables include:
 
@@ -160,7 +163,7 @@ basically states that there is a target named program that must be built and
 installed.
 
 You may dynamically add more variables, for example if you need to install
-in a non-standard location, see `Customization and extensions`_ for
+in a non-standard location, see `customization and extensions`_ for
 defining new vars and `Properties` on how to select the install directory.
 
 
@@ -254,11 +257,20 @@ Predefined flag vars include:
 `CPPFLAGS`, `CFLAGS`, `CXXFLAGS` and `LDFLAGS`
     Options listed are passed to the preprocessor, compilers and the linker,
     respectively.
+`INCLUDES`
+    Include directories that are passed to the preprocessor. List only the
+    directory with a trailing slash, kmake will prepend -I itself. In addition
+    kmake will produce (order-only) dependencies on generated files located
+    in such directories. This automatically ensures that headers are generated
+    before any source file that includes such headers, although the
+    mechanism isn't strictly restricted to headers.
 `LIBS`
-    Library path and link that are passed last to the linker.
+    Library path and link options that are passed last to the linker.
 `DEPS`
     Additional dependencies that used during compilation and linking stages,
-    depending on whether library our sources files are listed (see XXX
+    depending on whether library our sources files are listed. The DEPS flag
+    behaves mostly the same as `var`-y except that the paths are not
+    relative to the current sub-makefile.
     for a distinction between `var`-y).
 
 One special property about flag variables is that they can be combined
@@ -355,11 +367,10 @@ arbitrarily, for example to pre- and post-process files with sed.
 Please note that the generators are not executed unless the output file
 is a prerequisite of some other target or is to be installed itself.
 
-kmake ships two real generators (for calling sed and cat) which these are not
+kmake ships two real generators (for calling sed and cat) which are not
 enabled by default. They are enabled by including the files `gen-sed.mk` and
-`gen-cat.mk` respectively. A third generator, called byproduct, helps
-specifying dependencies for generator programs with multiple output files.
-This one is enabled by default.
+`gen-cat.mk` respectively. Two pseudo generators, `byproduct` and `generated`,
+are also included enabled by default.
 
 gen-sed
   The sed generator allows you to feed a file into sed in order to generate
@@ -398,7 +409,7 @@ gen-cat
   The output file is generated as needed: if it doesn't exist or any
   of its input files is newer.
 
-gen-byproduct
+byproduct
   The byproduct pseudo generator helps managing dependencies for programs
   that produce multiple output files. Because GNU make provides no universal
   facility to manage those (except pattern rules which require uniform names
@@ -422,10 +433,29 @@ gen-byproduct
   In this example, by listing bar.h in program-y, kmake can ensure
   that bar.h will exist before any object of program is build.
 
+generated
+  The generated pseudo generator marks files as generated that are
+  entirely generated using custom rules. By making kmake aware of such
+  generated files it can set vpath accordingly, among other things. The
+  custom rule will be run if any target build by kmake lists that file.
+
+  Example::
+
+    bin-y              := program
+    program-y          := foo.c myheader.h
+    generated-y        := myheader.h
+
+    $(objdir)myheader.h: $(srcdir)myheader.h.in
+      generate -in $< -out $@
+
+  Always use $(srcdir) and $(objdir) to prepend the proper prefix to target
+  and prerequsite files in such custom rules, in case a
+  `separate output directory`_ is used.
+  
 You can see that generators are quite powerful. In fact, they make kmake truly
 extensible since generators can be dynamically added to kmake if a project has
 specific requirements. Details on how to create generators follow in section
-`Customization and extensions`_.
+`customization and extensions`_.
 
 How to use kmake
 ----------------
@@ -551,7 +581,7 @@ properly escape the space on the command line (e.g. ``M=foo\ bar``).
 
 The partial build filter also applies to check, clean and install targets.
 
-Costumization and extensions
+Customization and extensions
 ----------------------------
 
 As has been mentioned before, kmake leaves room for extensions, because the
