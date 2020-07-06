@@ -53,4 +53,6 @@ $(foreach var,subdir-y INCLUDES-y,\
 
 $(eval $(call clearvars))
 
+$(if $(filter . ./,$(subdir-y)),$(error . in subdir-y would cause recursion))
+
 $(foreach dir,$(addprefix $(srcdir),$(subdir-y)),$(eval $(call inc_subdir,$(dir))))

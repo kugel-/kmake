@@ -378,6 +378,21 @@ install-$(1): $(addprefix install-,$(call varname,$(call filter_noinst,$(call ge
 install-$(call varname,$(1)): install-$(1)
 endef
 
+# At this point, subdir-y must be either . (to read the current directory's subdir.mk)
+# or list subdirectories exclusively (i.e. must not include .)
+# subdir-y must not be a mix of directories and . because that leads to inconsistencies
+# e.g. with the SUBDIR-y flags
+ifneq ($(call ensure_slash,$(subdir-y)),./)
+$(if $(filter . ./,$(subdir-y)),$(error subdir-y must not include . and other directories))
+endif
+# Handle initial subdir-XXX-y flags set by the master Makefile.
+# This applies only if subdir-y is also populated by the master Makfile.
+$(foreach dir,$(subdir-y),\
+	$(foreach flag,$(flag_names),$(eval $(call inherit_flags,$(flag),,$(dir)))))
+$(foreach dir,$(subdir-y),\
+	$(foreach flag,$(aflag_names),$(eval $(call inherit_aflags,$(flag),,$(dir)))))
+$(foreach v,$(flag_names) $(aflag_names),$(eval $(call clearvar,subdir-$(v))))
+
 $(foreach dir,$(subdir-y),$(eval $(call inc_subdir,$(dir))))
 
 all_dist          += $(addsuffix subdir.mk,$(all_subdirs))
