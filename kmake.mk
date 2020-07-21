@@ -70,7 +70,7 @@ extra-libs :=
 extra-data :=
 endef
 
-subdir-y      ?= .
+subdir-y      ?= ./
 prefix        ?= /usr/local/
 prefix_s      := $(call ensure_slash,$(prefix))
 bindir        ?= $(prefix_s)bin
@@ -128,8 +128,10 @@ KM_CFLAGS   ?= -O2 -g
 KM_CXXFLAGS ?= -O2 -g
 
 define inc_subdir
-srcdir := $(filter-out .,$(1))
-objdir := $(OUTDIR)$$(srcdir)
+all_subdirs += $(1)
+$(foreach h,all install clean $(target_names),$(h)-hook := $(h)-hook-$(1)$(newline))
+srcdir      := $(filter-out ./,$(1))
+objdir      := $(OUTDIR)$$(srcdir)
 include $(KMAKEDIR)process-subdir.mk
 endef
 

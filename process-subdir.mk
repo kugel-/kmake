@@ -1,15 +1,10 @@
 subdir-y :=
 
-# some variables must be set before reading subdir.mk
-$(foreach h,all install clean $(target_names),$(eval $(h)-hook := $(h)-hook-$(srcdir)))
-
 # SRCDIR points to the root directory (where kmake.mk is) if including
 # kmake.mk in a build-directory makefile (not using O=$builddir).
 # srcdir points to the directory of each subdir.mk and is relative
 # SRCDIR.
 include $(SRCDIR)$(srcdir)subdir.mk
-
-all_subdirs  += $(srcdir)
 
 # remember custom vars for installation
 prog_vars    := $(sort $(prog_vars) $(extra-progs))
