@@ -377,7 +377,7 @@ endef
 define install_rule
 install-$(1): $(1)
 install-$(1): $(addprefix install-,$(call varname,$(call filter_noinst,$(call getobj,$(1)))))
-install-$(call varname,$(1)): install-$(1)
+install-$(call varname,$(1)): $(if $(findstring /,$(1)),install-$(1))
 endef
 
 # At this point, subdir-y must be either . (to read the current directory's subdir.mk)
