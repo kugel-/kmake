@@ -140,7 +140,7 @@ cppexts := .c++ .cc .cpp .cxx .C
 cpppats := $(addprefix %,$(cppexts))
 hdrexts := .h .H .hxx .h++ .hh .hpp .inc
 hdrpats := $(addprefix %,$(hdrexts))
-objexts := .la .a .lo .o
+objexts := .la .a .lo .o .so
 objpats := $(addprefix %,$(objexts))
 
 # reverses the list in $(1), using recursion
@@ -192,7 +192,18 @@ is_cxx = $(filter $(cpppats),$(1))
 # call with $(1) = target (incl. extension)
 is_lib = $(filter %.la %.a,$(1))
 # call with $(1) = target (incl. extension)
+is_so = $(filter %.so,$(1))
+# call with $(1) = target (incl. extension)
 is_shlib = $(filter %.la %.so,$(1))
+# rpath option helper:
+# libtool wants the installation dir of the library (see help for rpath option)
+# and always needs it (or libtool will create an uninstallable convinience
+# library). For shared objects, rpath is the runtime search path and should be
+# based on $(libdir) and only passed to the linker if $(libdir) is non-standard.
+# Executables are handled like shared objects, regardless of libtool (-Xlinker
+# should make libtool pass it through), libtool will add more runtime search
+# paths as necessary.
+getrpath = $(if $(filter %.la,$(1)),-rpath $(call getprop,$(1),dir),$(addprefix -Xlinker -rpath=,$(filter-out /usr /usr/lib,$(libdir))))
 # call with $(1) = list of source files, $(2) = target (incl. extension)
 # returns CXX if one or more C++ files are found, else CC
 getcc = $(or $($(call varname,$(2))-compiler),$(if $(call is_cxx,$(1)),$(CXX),$(CC)))
@@ -287,7 +298,7 @@ cleanfiles += $(OUTDIR)$(call getoldcmdfile,$(1))
 
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(2)),CXX,CC)
 $(OUTDIR)$(1): LTTAG = $(call getlttag,$(3))
-$(OUTDIR)$(1): COMPILE = $(call getcc,$(2),$(3))
+$(OUTDIR)$(1): COMPILE = $(call getcc,$(2),$(3)) $(call is_so,$(2),-fpic)
 $(OUTDIR)$(1): ALL_FLAGS = $$($(3)-CPPFLAGS) $$(CPPFLAGS) $(if $(call is_cxx,$(2)),$$($(3)-CXXFLAGS) $$(CXXFLAGS),$$($(3)-CFLAGS) $(CFLAGS))
 $(OUTDIR)$(1): CMD = $$(COMPILE) $$(ALL_FLAGS)
 $(OUTDIR)$(1): PARTS = $(2)
@@ -311,9 +322,9 @@ cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(call getoldcmdfile,$(1)))
 
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(call getsrc,$(1))),CXXLD,CCLD)
 $(OUTDIR)$(1): LTTAG = $(call getlttag,$(1))
-$(OUTDIR)$(1): LINK = $(call getcc,$(call getsrc,$(1)),$(1))
+$(OUTDIR)$(1): LINK = $(call getcc,$(call getsrc,$(1)),$(1)) $(if $(call is_so,$(1)),-shared)
 # carefully set -rpath only for installable, shared libraries
-$(OUTDIR)$(1): RPATH = $(and $(call is_shlib,$(1)),$(call filter_noinst,$(1)),-rpath $(call getprop,$(1),dir))
+$(OUTDIR)$(1): RPATH = $(if $(call filter_noinst,$(1)),$(call getrpath,$(1)))
 $(OUTDIR)$(1): ALL_FLAGS = $$(RPATH) $$($(1)-LDFLAGS) $$(LDFLAGS)
 $(OUTDIR)$(1): CMD = $$(LINK) $$(ALL_FLAGS) -o $(1) $(call getobj,$(1)) $(call getvar,$(1),LIBS)
 $(OUTDIR)$(1): PARTS = $(call getobj,$(1))
@@ -596,15 +607,20 @@ $(all_lobj): $(OUTDIR)%.lo:
 # targets are filtered through filter_nobuild so that targets without
 # source do not emit a rule. This gives a nice "no rule to make target foo"
 # error message as an indication.
+$(addprefix $(OUTDIR),$(filter %.a,$(call filter_nobuild,$(ALL_LIBS)))):
+	$(call printcmd,AR,$@)
+	$(AT)mkdir -p $(dir $@)
+	$(Q)$(AR) rcs $@ $(call getparts,$(PARTS),$+)
+
 $(addprefix $(OUTDIR),$(filter %.la,$(call filter_nobuild,$(ALL_LIBS)))):
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(call flock_s,$(PARTS))$(LIBTOOL_LINK) $(ALL_FLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
 
-$(addprefix $(OUTDIR),$(filter %.a,$(call filter_nobuild,$(ALL_LIBS)))):
-	$(call printcmd,AR,$@)
+ $(addprefix $(OUTDIR),$(filter %.so,$(call filter_nobuild,$(ALL_LIBS)))):
+	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(AR) rcs $@ $(call getparts,$(PARTS),$+)
+	$(Q)$(call flock_s,$(PARTS))$(LINK) $(ALL_FLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
 
 $(addprefix $(OUTDIR),$(call filter_nobuild,$(ALL_PROGS_TESTS))):
 	$(call printcmd,$(PRINTCMD),$@)
