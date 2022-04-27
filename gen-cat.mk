@@ -7,6 +7,6 @@ endef
 define cat_recipe
 $(addprefix $(OUTDIR),$(1)):
 	$$(call printcmd,GEN,$$@)
-	$$(AT)mkdir -p $$(dir $$@)
+	$$(AT)mkdir -p $$(@D)
 	$$(Q)cat $$^ > $$@ || rm -f $$@
 endef

@@ -561,7 +561,7 @@ $(filter %.cmd,$(cleanfiles)): $(OUTDIR)%.cmd: FORCE
 ifeq ($(findstring q,$(MAKEFLAGS)),)
 	$(eval L_OBJ := $(call addpath,$(subst .deps/$(notdir $*),,$*),$(notdir $*)))
 	$(eval L_CMD := $(strip $(CMD));)
-	$(AT)$(shell mkdir -p $(dir $@))
+	$(AT)$(shell mkdir -p $(@D))
 	$(QQ)$(if $(call strneq,$(OLDCMD),$(L_CMD)),$(file >$(OUTDIR)$*.oldcmd,$$(OUTDIR)$(L_OBJ): OLDCMD = $(L_CMD)))
 	$(QQ)touch -r $(OUTDIR)$*.oldcmd $@
 endif
@@ -594,14 +594,14 @@ flock_x = $(call flock,-x,$(call locks,$(1)))
 all_obj = $(filter %.o,$(cleanfiles))
 $(all_obj): $(OUTDIR)%.o:
 	$(call printcmd,$(PRINTCMD),$@)
-	$(AT)mkdir -p $(dir $@)/.deps
+	$(AT)mkdir -p $(@D)/.deps
 	$(Q)$(COMPILE) $(call getdepopt,$@) $(ALL_FLAGS) -c -o $@ $(call getparts,$(PARTS),$^)
 
 # prevent %.lo to become a fallback rule for any file
 all_lobj = $(filter %.lo,$(cleanfiles))
 $(all_lobj): $(OUTDIR)%.lo:
 	$(call printcmd,$(PRINTCMD),$@)
-	$(AT)mkdir -p $(dir $@)/.deps
+	$(AT)mkdir -p $(@D)/.deps
 	$(Q)$(LIBTOOL_COMPILE) $(call getdepopt,$@) $(ALL_FLAGS) -c -o $@ $(call getparts,$(PARTS),$^)
 
 # targets are filtered through filter_nobuild so that targets without
@@ -609,22 +609,22 @@ $(all_lobj): $(OUTDIR)%.lo:
 # error message as an indication.
 $(addprefix $(OUTDIR),$(filter %.a,$(call filter_nobuild,$(ALL_LIBS)))):
 	$(call printcmd,AR,$@)
-	$(AT)mkdir -p $(dir $@)
+	$(AT)mkdir -p $(@D)
 	$(Q)$(AR) rcs $@ $(call getparts,$(PARTS),$+)
 
 $(addprefix $(OUTDIR),$(filter %.la,$(call filter_nobuild,$(ALL_LIBS)))):
 	$(call printcmd,$(PRINTCMD),$@)
-	$(AT)mkdir -p $(dir $@)
+	$(AT)mkdir -p $(@D)
 	$(Q)$(call flock_s,$(PARTS))$(LIBTOOL_LINK) $(ALL_FLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
 
  $(addprefix $(OUTDIR),$(filter %.so,$(call filter_nobuild,$(ALL_LIBS)))):
 	$(call printcmd,$(PRINTCMD),$@)
-	$(AT)mkdir -p $(dir $@)
+	$(AT)mkdir -p $(@D)
 	$(Q)$(call flock_s,$(PARTS))$(LINK) $(ALL_FLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
 
 $(addprefix $(OUTDIR),$(call filter_nobuild,$(ALL_PROGS_TESTS))):
 	$(call printcmd,$(PRINTCMD),$@)
-	$(AT)mkdir -p $(dir $@)
+	$(AT)mkdir -p $(@D)
 	$(Q)$(call flock_s,$(PARTS))$(if $(filter %.la %.lo,$+),$(LIBTOOL_LINK),$(LINK)) $(ALL_FLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
 
 $(addprefix install-,$(call filter_noinst,$(ALL_LIBS) $(ALL_PROGS) $(ALL_DATA))): install-%:
