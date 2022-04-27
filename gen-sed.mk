@@ -12,7 +12,8 @@ define sed_recipe
 $(addprefix $(OUTDIR),$(1)):
 	$$(call printcmd,GEN,$$@)
 	$$(AT)mkdir -p $$(@D)
-	$$(Q)sed $$(addprefix --expression=,$$(SED_SCRIPT)) $$< >$$@.tmp && ( mv $$@.tmp $$@ ; rm -f $$@.tmp )
+	$$(Q)trap "rm -f $$@.tmp" EXIT && \
+	     sed $$(addprefix --expression=,$$(SED_SCRIPT)) $$< >$$@.tmp && mv $$@.tmp $$@
 endef
 
 sed-suffix := .c.sed
