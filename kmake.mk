@@ -659,7 +659,6 @@ $(DIST_FOLDER).tar.gz: COMP=z
 $(DIST_FOLDER).tar.bz2: COMP=z
 $(addprefix $(DIST_FOLDER).tar.,$(DIST_SUFFIXES)): dist
 	$(call printcmd,TAR,$@)
-	$(Q)rm -f $@
 	$(Q)tar -c$(COMP) -f $@ $(DIST_FOLDER)
 
 # http://make.mad-scientist.net/papers/advanced-auto-dependency-generation
