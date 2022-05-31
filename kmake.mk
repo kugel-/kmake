@@ -203,7 +203,7 @@ is_shlib = $(filter %.la %.so,$(1))
 # Executables are handled like shared objects, regardless of libtool (-Xlinker
 # should make libtool pass it through), libtool will add more runtime search
 # paths as necessary.
-getrpath = $(if $(filter %.la,$(1)),-rpath $(call getprop,$(1),dir),$(addprefix -Xlinker -rpath=,$(filter-out /usr /usr/lib,$(libdir))))
+getrpath = $(if $(filter %.la,$(1)),-rpath $(call getprop,$(1),dir),$(addprefix -Xlinker -rpath=,$(filter-out /lib /usr/lib,$(libdir))))
 # call with $(1) = list of source files, $(2) = target (incl. extension)
 # returns CXX if one or more C++ files are found, else CC
 getcc = $(or $($(call varname,$(2))-compiler),$(if $(call is_cxx,$(1)),$(CXX),$(CC)))
