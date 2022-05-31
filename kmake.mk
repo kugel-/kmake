@@ -298,7 +298,7 @@ cleanfiles += $(OUTDIR)$(call getoldcmdfile,$(1))
 
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(2)),CXX,CC)
 $(OUTDIR)$(1): LTTAG = $(call getlttag,$(3))
-$(OUTDIR)$(1): COMPILE = $(call getcc,$(2),$(3)) $(call is_so,$(2),-fpic)
+$(OUTDIR)$(1): COMPILE = $(call getcc,$(2),$(3)) $(if $(call is_so,$(3)),-fpic)
 $(OUTDIR)$(1): ALL_FLAGS = $$($(3)-CPPFLAGS) $$(CPPFLAGS) $(if $(call is_cxx,$(2)),$$($(3)-CXXFLAGS) $$(CXXFLAGS),$$($(3)-CFLAGS) $(CFLAGS))
 $(OUTDIR)$(1): CMD = $$(COMPILE) $$(ALL_FLAGS)
 $(OUTDIR)$(1): PARTS = $(2)
