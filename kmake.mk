@@ -33,7 +33,7 @@ LIBTOOL_INSTALL  = $(LIBTOOL) $(if $(Q),--silent) --mode=install $(INSTALL_PROGR
 STRIPWD         ?=
 
 # adds a traling slash to each of $(1), unless they already end with a slash
-ensure_slash     = $(addsuffix /,$(patsubst %/,%,$(1)))
+ensure_slash     = $(patsubst %//,%/,$(addsuffix /,$(1)))
 
 ifneq ($(S),)
 SRCDIR := $(call ensure_slash,$(S))
