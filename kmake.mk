@@ -656,7 +656,7 @@ $(addprefix dist-,$(DIST_SUFFIXES)): dist-%: $(DIST_FOLDER).tar.%
 
 $(DIST_FOLDER).tar.xz: COMP=J
 $(DIST_FOLDER).tar.gz: COMP=z
-$(DIST_FOLDER).tar.bz2: COMP=z
+$(DIST_FOLDER).tar.bz2: COMP=j
 $(addprefix $(DIST_FOLDER).tar.,$(DIST_SUFFIXES)): dist
 	$(call printcmd,TAR,$@)
 	$(Q)rm -f $@
