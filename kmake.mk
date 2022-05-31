@@ -33,7 +33,7 @@ LIBTOOL_INSTALL  = $(LIBTOOL) $(if $(Q),--silent) --mode=install $(INSTALL_PROGR
 STRIPWD         ?=
 
 # adds a traling slash to each of $(1), unless they already end with a slash
-ensure_slash     = $(addsuffix /,$(patsubst %/,%,$(1)))
+ensure_slash     = $(patsubst %//,%/,$(addsuffix /,$(1)))
 
 ifneq ($(S),)
 SRCDIR := $(call ensure_slash,$(S))
@@ -203,7 +203,7 @@ is_shlib = $(filter %.la %.so,$(1))
 # Executables are handled like shared objects, regardless of libtool (-Xlinker
 # should make libtool pass it through), libtool will add more runtime search
 # paths as necessary.
-getrpath = $(if $(filter %.la,$(1)),-rpath $(call getprop,$(1),dir),$(addprefix -Xlinker -rpath=,$(filter-out /usr /usr/lib,$(libdir))))
+getrpath = $(if $(filter %.la,$(1)),-rpath $(call getprop,$(1),dir),$(addprefix -Xlinker -rpath=,$(filter-out /lib /usr/lib,$(libdir))))
 # call with $(1) = list of source files, $(2) = target (incl. extension)
 # returns CXX if one or more C++ files are found, else CC
 getcc = $(or $($(call varname,$(2))-compiler),$(if $(call is_cxx,$(1)),$(CXX),$(CC)))
@@ -298,7 +298,7 @@ cleanfiles += $(OUTDIR)$(call getoldcmdfile,$(1))
 
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(2)),CXX,CC)
 $(OUTDIR)$(1): LTTAG = $(call getlttag,$(3))
-$(OUTDIR)$(1): COMPILE = $(call getcc,$(2),$(3)) $(call is_so,$(2),-fpic)
+$(OUTDIR)$(1): COMPILE = $(call getcc,$(2),$(3)) $(if $(call is_so,$(3)),-fpic)
 $(OUTDIR)$(1): ALL_FLAGS = $$($(3)-CPPFLAGS) $$(CPPFLAGS) $(if $(call is_cxx,$(2)),$$($(3)-CXXFLAGS) $$(CXXFLAGS),$$($(3)-CFLAGS) $(CFLAGS))
 $(OUTDIR)$(1): CMD = $$(COMPILE) $$(ALL_FLAGS)
 $(OUTDIR)$(1): PARTS = $(2)
