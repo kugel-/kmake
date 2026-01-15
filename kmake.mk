@@ -209,7 +209,7 @@ getrpath = $(if $(filter %.la,$(1)),-rpath $(call getprop,$(1),dir),$(addprefix 
 getcc = $(or $($(call varname,$(2))-compiler),$(if $(call is_cxx,$(1)),$(CXX),$(CC)))
 # call with $(1) = target (incl. extension)
 # returns the LTTAG flag, or CXX if one or more C++ files are found, else CC
-getlttag = $(or $($(call varname,$(1))-libtooltag),$(if $(call is_cxx,$(call getsrc,$(1))),CXX),CC)
+getlttag = $(or $($(call varname,$(1))-libtooltag),$(and $(filter %.la %.lo,$(call getobj,$(1))),$(if $(call is_cxx,$(call getsrc,$(1))),CXX,CC)))
 # call with $(1) = target (incl. extension)
 getdepsdir = $(dir $(1)).deps/
 # call with $(1) = target (incl. extension)
@@ -279,7 +279,7 @@ $(if $(OUTDIR),$(foreach f,$(1),vpath $(f) $(OUTDIR)$(newline)))
 endef
 
 filter_partial = $(filter $(or $(addprefix $(2),$(addsuffix %,$(PARTDIR))),%),$(1))
-filter_nobuild = $(foreach t,$(1),$(if $(call getsrc_c,$(t)),$(t)))
+filter_nobuild = $(foreach t,$(1),$(if $(or $(call getsrc_c,$(t)),$(call getobjdeps,$(t))),$(t)))
 filter_noinst = $(foreach t,$(1),$(if $(filter-out noinst,$(call getprop,$(t),dir)),$(t)))
 
 is_gen = $(strip $(filter $(ALL_GEN_DIRS),$(1)))
@@ -298,7 +298,7 @@ cleanfiles += $(OUTDIR)$(call getoldcmdfile,$(1))
 
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(2)),CXX,CC)
 $(OUTDIR)$(1): LTTAG = $(call getlttag,$(3))
-$(OUTDIR)$(1): COMPILE = $(call getcc,$(2),$(3)) $(if $(call is_so,$(3)),-fpic)
+$(OUTDIR)$(1): COMPILE = $(call getcc,$(2),$(3)) $(if $(filter %.so %.so.a,$(3)),-fpic)
 $(OUTDIR)$(1): ALL_FLAGS = $$($(3)-CPPFLAGS) $$(CPPFLAGS) $(if $(call is_cxx,$(2)),$$($(3)-CXXFLAGS) $$(CXXFLAGS),$$($(3)-CFLAGS) $(CFLAGS))
 $(OUTDIR)$(1): CMD = $$(COMPILE) $$(ALL_FLAGS)
 $(OUTDIR)$(1): PARTS = $(2)
@@ -343,7 +343,7 @@ $(1)-CXXFLAGS := $(KM_CXXFLAGS) $(KM_CXXFLAGS_$(if $(call is_shlib,$(1)),LIB,PRO
 $(1)-LDFLAGS  := $(KM_LDFLAGS)  $(KM_LDFLAGS_$(if $(call is_shlib,$(1)),LIB,PROG))  $(call getvar,$(1),LDFLAGS)
 # Add headers specified via $var-y, as well as generated files that can
 # be found in any of the target's source and INCLUDES directories, as order-only
-# dep. This ensures the headers are genrated first (if generated anyway). If a
+# dep. This ensures the headers are generated first (if generated anyway). If a
 # .o really depends on it, a true dependency will be added by the .dep files.
 $(1)-oodeps   := $(call gethdrdeps,$(1)) $(call getgendeps,$(dir $(call getprop,$(1),origin)) $(call getvar,$(1),INCLUDES))
 
@@ -386,6 +386,8 @@ $(foreach t,$(all_$(1)),$(foreach s,$(prop_names),$(if $($(1)-$(s)),$(call varna
 endef
 
 define install_rule
+install-$(1): TDIR = $(call getprop,$(1),dir)
+install-$(1): SHLIBS = $(and $(call filter_nobuild,$(1)),$(call is_so,$(call getobj,$(1))))
 install-$(1): $(1)
 install-$(1): $(addprefix install-,$(call varname,$(call filter_noinst,$(call getobj,$(1)))))
 install-$(call varname,$(1)): $(if $(findstring /,$(1)),install-$(1))
@@ -571,7 +573,8 @@ endif
 # so the appropriate source file is not necessarily the first prerequisite.
 # Likewise for linked binaries, the prerequisites may contain unexpected
 # extra files (at least .cmd, but maybe a linker script too).
-getparts = $(filter $(addprefix $(OUTDIR),$(1)) $(addprefix $(SRCDIR),$(1)),$(2))
+getparts_ = $(filter $(addprefix $(OUTDIR),$(1)) $(addprefix $(SRCDIR),$(1)),$(2))
+getparts  = $(filter-out %.so,$(call getparts_,$(1),$(2))) $(abspath $(filter %.so,$(call getparts_,$(1),$(2))))
 # File locking between recipes...we do this because there is a bad
 # issue in libtool, when doing link and install concurrently. Linking
 # a library (.la) into another file fails if the library is installed
@@ -617,20 +620,33 @@ $(addprefix $(OUTDIR),$(filter %.la,$(call filter_nobuild,$(ALL_LIBS)))):
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(call flock_s,$(PARTS))$(LIBTOOL_LINK) $(ALL_FLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
 
- $(addprefix $(OUTDIR),$(filter %.so,$(call filter_nobuild,$(ALL_LIBS)))):
+whole_archive = -Xlinker --whole-archive -Xlinker $(1) -Xlinker --no-whole-archive
+$(addprefix $(OUTDIR),$(filter %.so,$(call filter_nobuild,$(ALL_LIBS)))):
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(call flock_s,$(PARTS))$(LINK) $(ALL_FLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
+	$(Q)$(LINK) $(ALL_FLAGS) -o $@ \
+		$(patsubst %.so.a,$(call whole_archive,%.so.a),$(call getparts,$(PARTS),$+)) \
+		$(call getvar,$(@),LIBS)
 
 $(addprefix $(OUTDIR),$(call filter_nobuild,$(ALL_PROGS_TESTS))):
 	$(call printcmd,$(PRINTCMD),$@)
 	$(AT)mkdir -p $(dir $@)
-	$(Q)$(call flock_s,$(PARTS))$(if $(filter %.la %.lo,$+),$(LIBTOOL_LINK),$(LINK)) $(ALL_FLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
+	$(Q)$(if $(filter %.la %.lo,$+),$(call flock_s,$(PARTS)) $(LIBTOOL_LINK),$(LINK)) $(ALL_FLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
 
-$(addprefix install-,$(call filter_noinst,$(ALL_LIBS) $(ALL_PROGS) $(ALL_DATA))): install-%:
+$(addprefix install-,$(call filter_noinst,$(ALL_DATA))): install-%:
 	$(call printcmd,INSTALL,$<)
-	$(AT)mkdir -p $(DESTDIR)$(call getprop,$<,dir)
-	$(Q)$(call flock_x,$(filter %.la,$*))$(if $(filter %.la %.lo,$+),$(LIBTOOL_INSTALL),$(INSTALL_PROGRAM)) $< $(DESTDIR)$(call getprop,$<,dir)
+	$(AT)mkdir -p $(DESTDIR)$(TDIR)
+	$(Q)$(INSTALL_PROGRAM) $< $(DESTDIR)$(TDIR)
+
+# On installation, all DT_NEEDED occurrences of known shared libraries are patched
+# from absolute path (which points to OUTDIR) to either relative paths (if inside $(libdir))
+# or absolute install paths (if outside $(libdir))
+$(addprefix install-,$(call filter_noinst,$(ALL_LIBS) $(ALL_PROGS))): install-%:
+	$(call printcmd,INSTALL,$<)
+	$(AT)mkdir -p $(DESTDIR)$(TDIR)
+	$(Q)$(call flock_x,$(filter %.la,$*))$(if $(filter %.la %.lo,$+),$(LIBTOOL_INSTALL),$(INSTALL_PROGRAM)) $< $(DESTDIR)$(TDIR)
+	$(Q)cd $(DESTDIR)$(TDIR); \
+		$(and $(filter-out %.la,$*),$(SHLIBS),patchelf $(foreach SO,$(SHLIBS),--replace-needed $(abspath $(addprefix $(OUTDIR),$(SO))) $(patsubst $(libdir)/%,%,$(call getprop,$(SO),dir)/$(notdir $(SO)))) $(*F);)
 
 # Gather all files list in any $var-y except if that's known to be generated
 get_distfiles = $(filter-out $(ALL_GEN),$(foreach t,$(filter-out $(ALL_GEN),$(ALL_PROGS) $(ALL_LIBS) $(ALL_DATA) $(ALL_TESTS)) $(ALL_GEN),$(or $(call getysrc,$(t)),$(t))))

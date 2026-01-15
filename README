@@ -191,17 +191,54 @@ subdir.mk file.
 
 Here's an example for a target specification::
 
-    bin-y     := tool
-    libs-y    := libmy.a
+    bin-y     := tool_a tool_so
+    libs-y    := libmy.a libs.so
 
     libmy.a-y := libmy.c
-    tool-y    := tool.c
-    tool-y    += libmy.a
+    tool_a-y  := tool.c
+    tool_a-y  += libmy.a
+
+    libs.so-y  := libmy.c
+    tool_so-y  := tool.c
+    tool_so-y  += libs.so
 
 With the suffix property, this can be shortened a bit::
     bin-suffix := .c
     bin-y      := tool # tool.c automatically picked up
 
+Libraries
+^^^^^^^^^
+
+As you can see above, kmake can be used to build static and shared libraries.
+In ether case libtool may be employed or not. kmake will use libtool as appropriate
+based on the suffixes:
+
+`.la`
+    kmake will generate a libtool library. This can be static or shared (or both) depending
+    on the LDFLAGS attached to it (see `Flags`). Libtool also encodes dependency informations
+    internally so that static libtool libraries do provide that when linking into other binaries.
+`.a`
+    kmake will generate a static library. Please not that, unlike libtool static libraries,
+    these do not encode dependency informations. Any dependency implied by a normal static
+    library must be added to the binary that links the static library.
+`.so`
+    kmake will generate a shared library. With shared libraries there's a twist:
+    When linking these into a binary, the binary normally cannot be executed until the shared
+    library is installed. kmake is helpful here by encoding the (absolute) path to the library
+    so that binaries can run from their build location, which is especially useful for unit tests.
+    Upon installation, these paths are updated to their final destination. Actually, typically
+    the paths becomes relative such that the runtime linker can find that in the system library
+    location.
+    The patchelf program is used by kmake for modifying the paths in the files.
+`so.a.`
+    This is a special case of a static library. The result is indeed a normal static library, but
+    the objects are compiled such that they can also be linked into shared libraries (e.g. using
+    -fpic). This is to allow to link these into shared libraries in order to obtain a static
+    *and* shared library from the same objects. The goal is to allow building statically and
+    dynamically linked programs simultaneously from the same objects. This is an alternative for
+    "libtool convinience libraries" which are only available when using libtool.
+    The syntax for this is `libfoo.so-y := libfoo.so.a`, binaries can now link either of the
+    library variants.
 
 Properties
 ^^^^^^^^^^
