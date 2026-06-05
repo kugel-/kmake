@@ -175,6 +175,8 @@ getdeps = $(call addpath,$(1),$(call getvar,$(1))) $(call getvar,$(1),DEPS)
 getdeps_r = $(call getdeps,$(1)) $(foreach d,$(call getdeps,$(1)),$(call getdeps_r,$(d)))
 # call with $(1) = target (incl. extension)
 getobjdeps = $(filter $(objpats),$(call getdeps,$(1)))
+# recursive version of getdeps
+getobjdeps_r = $(call getobjdeps,$(1)) $(foreach d,$(call getobjdeps,$(1)),$(call getobjdeps_r,$(d)))
 # call with $(1) = target (incl. extension)
 gethdrdeps = $(filter $(hdrpats),$(call getdeps,$(1)))
 # call with $(1) = target (incl. extension)
@@ -195,6 +197,8 @@ is_lib = $(filter %.la %.a,$(1))
 is_so = $(filter %.so,$(1))
 # call with $(1) = target (incl. extension)
 is_shlib = $(filter %.la %.so,$(1))
+# call with $(1) = target (incl. extension)
+is_elf = $(and $(filter-out %.la %.a %.rlib,$(1)),$(call getobj,$(1)))
 # rpath option helper:
 # libtool wants the installation dir of the library (see help for rpath option)
 # and always needs it (or libtool will create an uninstallable convinience
@@ -204,6 +208,10 @@ is_shlib = $(filter %.la %.so,$(1))
 # should make libtool pass it through), libtool will add more runtime search
 # paths as necessary.
 getrpath = $(if $(filter %.la,$(1)),-rpath $(call getprop,$(1),dir),$(addprefix -Xlinker -rpath=,$(filter-out /lib /usr/lib,$(libdir))))
+# call with $(1) = target (incl. extension)
+# explicit buildrpaths are not needed with libtool, the tool handles this itself through .la files
+getbuildrpath = $(if $(filter-out %.la,$(1)),$(call uniq,$(dir $(call getobjdeps,$(1)))))
+getbuildrpathlink = $(if $(filter-out %.la,$(1)),$(call uniq,$(dir $(call getobjdeps_r,$(1)))))
 # call with $(1) = list of source files, $(2) = target (incl. extension)
 # returns CXX if one or more C++ files are found, else CC
 getcc = $(or $($(call varname,$(2))-compiler),$(if $(call is_cxx,$(1)),$(CXX),$(CC)))
@@ -280,6 +288,7 @@ endef
 
 filter_partial = $(filter $(or $(addprefix $(2),$(addsuffix %,$(PARTDIR))),%),$(1))
 filter_nobuild = $(foreach t,$(1),$(if $(or $(call getsrc_c,$(t)),$(call getobjdeps,$(t))),$(t)))
+filter_build = $(filter-out $(call filter_nobuild,$(1)),$(1))
 filter_noinst = $(foreach t,$(1),$(if $(filter-out noinst,$(call getprop,$(t),dir)),$(t)))
 
 is_gen = $(strip $(filter $(ALL_GEN_DIRS),$(1)))
@@ -322,10 +331,15 @@ cleanfiles += $(if $(call getobj,$(1)),$(OUTDIR)$(call getoldcmdfile,$(1)))
 
 $(OUTDIR)$(1): PRINTCMD = $(if $(call is_cxx,$(call getsrc,$(1))),CXXLD,CCLD)
 $(OUTDIR)$(1): LTTAG = $(call getlttag,$(1))
-$(OUTDIR)$(1): LINK = $(call getcc,$(call getsrc,$(1)),$(1)) $(if $(call is_so,$(1)),-shared)
+$(OUTDIR)$(1): LINK = $(call getcc,$(call getsrc,$(1)),$(1))
+$(OUTDIR)$(1): LINK += $(if $(call is_so,$(1)),-shared -Xlinker -soname=$(notdir $(1)))
 # carefully set -rpath only for installable, shared libraries
 $(OUTDIR)$(1): RPATH = $(if $(call filter_noinst,$(1)),$(call getrpath,$(1)))
-$(OUTDIR)$(1): ALL_FLAGS = $$(RPATH) $$($(1)-LDFLAGS) $$(LDFLAGS)
+# BUILDRPATH is set to the build directory to allow for immediate execution without
+# make install (useful not only, but in particular, for tests),
+$(OUTDIR)$(1): BUILDRPATH = $(addprefix -Xlinker -rpath=,$(abspath $(addprefix $(OUTDIR),$(call getbuildrpath,$(1)))))
+$(OUTDIR)$(1): BUILDRPATHLINK = $(addprefix -Xlinker -rpath-link=,$(abspath $(addprefix $(OUTDIR),$(call getbuildrpathlink,$(1)))))
+$(OUTDIR)$(1): ALL_FLAGS = $$(RPATH) $$(BUILDRPATH) $$(BUILDRPATHLINK) $$($(1)-LDFLAGS) $$(LDFLAGS)
 $(OUTDIR)$(1): CMD = $$(LINK) $$(ALL_FLAGS) -o $(1) $(call getobj,$(1)) $(call getvar,$(1),LIBS)
 $(OUTDIR)$(1): PARTS = $(call getobj,$(1))
 $(OUTDIR)$(1): $(call getobj,$(1))
@@ -387,7 +401,7 @@ endef
 
 define install_rule
 install-$(1): TDIR = $(call getprop,$(1),dir)
-install-$(1): SHLIBS = $(and $(call filter_nobuild,$(1)),$(call is_so,$(call getobj,$(1))))
+install-$(1): BUILDRPATH = $(abspath $(addprefix $(OUTDIR),$(call getbuildrpath,$(1))))
 install-$(1): $(1)
 install-$(1): $(addprefix install-,$(call varname,$(call filter_noinst,$(call getobj,$(1)))))
 install-$(call varname,$(1)): $(if $(findstring /,$(1)),install-$(1))
@@ -633,20 +647,28 @@ $(addprefix $(OUTDIR),$(call filter_nobuild,$(ALL_PROGS_TESTS))):
 	$(AT)mkdir -p $(dir $@)
 	$(Q)$(if $(filter %.la %.lo,$+),$(call flock_s,$(PARTS)) $(LIBTOOL_LINK),$(LINK)) $(ALL_FLAGS) -o $@ $(call getparts,$(PARTS),$+) $(call getvar,$(@),LIBS)
 
-$(addprefix install-,$(call filter_noinst,$(ALL_DATA))): install-%:
+# This installs data files as well as scripts and pre-compiled binaries and libraries
+$(addprefix install-,$(call filter_noinst,$(call filter_build,$(ALL_LIBS) $(ALL_PROGS)) $(ALL_DATA))): install-%:
 	$(call printcmd,INSTALL,$<)
 	$(AT)mkdir -p $(DESTDIR)$(TDIR)
 	$(Q)$(INSTALL_PROGRAM) $< $(DESTDIR)$(TDIR)
 
-# On installation, all DT_NEEDED occurrences of known shared libraries are patched
-# from absolute path (which points to OUTDIR) to either relative paths (if inside $(libdir))
-# or absolute install paths (if outside $(libdir))
-$(addprefix install-,$(call filter_noinst,$(ALL_LIBS) $(ALL_PROGS))): install-%:
+# On installation we replace all BUILDRPATH entries from the library rpath,
+# carefully leaving all other rpath entries unchanged. Special case for to-be-empty rpaths.
+# DT_NEEDED entries are relative because we generally set soname for shared objects.
+$(addprefix install-,$(call filter_noinst,$(call filter_nobuild,$(ALL_LIBS) $(ALL_PROGS)))): install-%:
 	$(call printcmd,INSTALL,$<)
 	$(AT)mkdir -p $(DESTDIR)$(TDIR)
 	$(Q)$(call flock_x,$(filter %.la,$*))$(if $(filter %.la %.lo,$+),$(LIBTOOL_INSTALL),$(INSTALL_PROGRAM)) $< $(DESTDIR)$(TDIR)
-	$(Q)cd $(DESTDIR)$(TDIR); \
-		$(and $(filter-out %.la,$*),$(SHLIBS),patchelf $(foreach SO,$(SHLIBS),--replace-needed $(abspath $(addprefix $(OUTDIR),$(SO))) $(patsubst $(libdir)/%,%,$(call getprop,$(SO),dir)/$(notdir $(SO)))) $(*F);)
+	$(Q)cd $(DESTDIR)$(TDIR) && \
+		if [ -n "$(and $(BUILDRPATH),$(call is_elf,$(*)))" ]; then \
+			allowed=$$(patchelf --print-rpath $(*F) | sed $(foreach p,$(BUILDRPATH),-e 's#$(p):*##')); \
+			if [ -n "$$allowed" ]; then \
+				patchelf --shrink-rpath --allowed-rpath-prefixes "$${allowed}" $(*F); \
+			else \
+				patchelf --remove-rpath $(*F); \
+			fi; \
+		fi
 
 # Gather all files list in any $var-y except if that's known to be generated
 get_distfiles = $(filter-out $(ALL_GEN),$(foreach t,$(filter-out $(ALL_GEN),$(ALL_PROGS) $(ALL_LIBS) $(ALL_DATA) $(ALL_TESTS)) $(ALL_GEN),$(or $(call getysrc,$(t)),$(t))))
